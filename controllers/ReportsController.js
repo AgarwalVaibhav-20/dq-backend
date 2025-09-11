@@ -1,0 +1,787 @@
+const Transaction = require('../model/Transaction');
+const Order = require('../model/Order');
+const Customer = require('../model/Customer');
+const Menu = require('../model/Menu');
+const mongoose = require('mongoose');
+
+// Helper function to get date range based on period
+const getDateRange = (period) => {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  switch (period) {
+    case 'daily':
+      return {
+        start: startOfDay,
+        end: new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
+      };
+    case 'monthly':
+      return {
+        start: new Date(now.getFullYear(), now.getMonth(), 1),
+        end: new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      };
+    case 'yearly':
+      return {
+        start: new Date(now.getFullYear(), 0, 1),
+        end: new Date(now.getFullYear() + 1, 0, 1)
+      };
+    default:
+      return {
+        start: startOfDay,
+        end: new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
+      };
+  }
+};
+
+// Get all days reports
+exports.getAllDaysReports = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    
+    const reports = await Transaction.find({ customerId })
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      data: reports
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch all days reports',
+      error: error.message
+    });
+  }
+};
+
+// Get report by type (daily/monthly/yearly)
+exports.getReportByType = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    const { type } = req.query; // daily, monthly, yearly
+    
+    const dateRange = getDateRange(type);
+    
+    const transactions = await Transaction.find({
+      restaurantId: new mongoose.Types.ObjectId(restaurantId),
+      createdAt: {
+        $gte: dateRange.start,
+        $lt: dateRange.end
+      }
+    }).populate('customerId', 'name email');
+    
+    // Calculate summary statistics
+    const totalRevenue = transactions.reduce((sum, txn) => sum + txn.total, 0);
+    const totalTransactions = transactions.length;
+    const averageOrderValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+    
+    res.json({
+      success: true,
+      data: {
+        transactions,
+        summary: {
+          totalRevenue,
+          totalTransactions,
+          averageOrderValue,
+          period: type,
+          dateRange
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch report by type',
+      error: error.message
+    });
+  }
+};
+
+// Get customer report
+exports.getCustomerReport = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    
+    const customers = await Customer.find({ restaurantId })
+      .populate({
+        path: 'transactions',
+        model: 'Transaction',
+        match: { restaurantId: new mongoose.Types.ObjectId(restaurantId) }
+      });
+    
+    const customerStats = customers.map(customer => {
+      const totalSpent = customer.transactions.reduce((sum, txn) => sum + txn.total, 0);
+      const totalOrders = customer.transactions.length;
+      
+      return {
+        ...customer.toObject(),
+        totalSpent,
+        totalOrders,
+        averageOrderValue: totalOrders > 0 ? totalSpent / totalOrders : 0
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: customerStats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer report',
+      error: error.message
+    });
+  }
+};
+
+// Get table report
+exports.getTableReport = async (req, res) => {
+  try {
+    const { restaurantId, startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      restaurantId: new mongoose.Types.ObjectId(restaurantId),
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Group by table number
+    const tableStats = {};
+    transactions.forEach(txn => {
+      const tableNumber = txn.tableNumber;
+      if (!tableStats[tableNumber]) {
+        tableStats[tableNumber] = {
+          tableNumber,
+          totalOrders: 0,
+          totalRevenue: 0,
+          averageOrderValue: 0
+        };
+      }
+      tableStats[tableNumber].totalOrders++;
+      tableStats[tableNumber].totalRevenue += txn.total;
+    });
+    
+    // Calculate average order value
+    Object.values(tableStats).forEach(table => {
+      table.averageOrderValue = table.totalOrders > 0 ? table.totalRevenue / table.totalOrders : 0;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.values(tableStats)
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch table report',
+      error: error.message
+    });
+  }
+};
+
+// Get transaction count by date
+exports.getTransactionCountByDate = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Group by date
+    const dailyStats = {};
+    transactions.forEach(txn => {
+      const date = txn.createdAt.toISOString().split('T')[0];
+      if (!dailyStats[date]) {
+        dailyStats[date] = {
+          date,
+          count: 0,
+          totalRevenue: 0
+        };
+      }
+      dailyStats[date].count++;
+      dailyStats[date].totalRevenue += txn.total;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.values(dailyStats).sort((a, b) => new Date(a.date) - new Date(b.date))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch transaction count by date',
+      error: error.message
+    });
+  }
+};
+
+// Get tax collected by date
+exports.getTaxCollectedByDate = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Group by date
+    const dailyTaxStats = {};
+    transactions.forEach(txn => {
+      const date = txn.createdAt.toISOString().split('T')[0];
+      if (!dailyTaxStats[date]) {
+        dailyTaxStats[date] = {
+          date,
+          totalTax: 0,
+          transactionCount: 0
+        };
+      }
+      dailyTaxStats[date].totalTax += txn.taxAmount || 0;
+      dailyTaxStats[date].transactionCount++;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.values(dailyTaxStats).sort((a, b) => new Date(a.date) - new Date(b.date))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch tax collected by date',
+      error: error.message
+    });
+  }
+};
+
+// Get table usage by date
+exports.getTableUsageByDate = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Group by date and table
+    const tableUsageStats = {};
+    transactions.forEach(txn => {
+      const date = txn.createdAt.toISOString().split('T')[0];
+      const tableNumber = txn.tableNumber;
+      const key = `${date}-${tableNumber}`;
+      
+      if (!tableUsageStats[key]) {
+        tableUsageStats[key] = {
+          date,
+          tableNumber,
+          usageCount: 0,
+          totalRevenue: 0
+        };
+      }
+      tableUsageStats[key].usageCount++;
+      tableUsageStats[key].totalRevenue += txn.total;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.values(tableUsageStats).sort((a, b) => new Date(a.date) - new Date(b.date))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch table usage by date',
+      error: error.message
+    });
+  }
+};
+
+// Get payment type report
+exports.getPaymentTypeReport = async (req, res) => {
+  try {
+    const { restaurantId, startDate, endDate } = req.body;
+    
+    const transactions = await Transaction.find({
+      restaurantId: new mongoose.Types.ObjectId(restaurantId),
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Group by payment type
+    const paymentStats = {};
+    transactions.forEach(txn => {
+      const paymentType = txn.type;
+      if (!paymentStats[paymentType]) {
+        paymentStats[paymentType] = {
+          paymentType,
+          totalCount: 0,
+          totalAmount: 0
+        };
+      }
+      paymentStats[paymentType].totalCount++;
+      paymentStats[paymentType].totalAmount += txn.total;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.values(paymentStats)
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch payment type report',
+      error: error.message
+    });
+  }
+};
+
+// Get dashboard statistics report
+exports.getDashboardStatisticsReport = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    
+    // Today's stats
+    const todayStats = await Transaction.aggregate([
+      {
+        $match: {
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          createdAt: { $gte: startOfDay }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$total' },
+          totalTransactions: { $sum: 1 },
+          averageOrderValue: { $avg: '$total' }
+        }
+      }
+    ]);
+    
+    // This month's stats
+    const monthStats = await Transaction.aggregate([
+      {
+        $match: {
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          createdAt: { $gte: startOfMonth }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$total' },
+          totalTransactions: { $sum: 1 },
+          averageOrderValue: { $avg: '$total' }
+        }
+      }
+    ]);
+    
+    // This year's stats
+    const yearStats = await Transaction.aggregate([
+      {
+        $match: {
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          createdAt: { $gte: startOfYear }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$total' },
+          totalTransactions: { $sum: 1 },
+          averageOrderValue: { $avg: '$total' }
+        }
+      }
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        today: todayStats[0] || { totalRevenue: 0, totalTransactions: 0, averageOrderValue: 0 },
+        month: monthStats[0] || { totalRevenue: 0, totalTransactions: 0, averageOrderValue: 0 },
+        year: yearStats[0] || { totalRevenue: 0, totalTransactions: 0, averageOrderValue: 0 }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard statistics report',
+      error: error.message
+    });
+  }
+};
+
+// Get discount usage by date
+exports.getDiscountUsageByDate = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      },
+      discount: { $gt: 0 }
+    });
+    
+    // Group by date
+    const dailyDiscountStats = {};
+    transactions.forEach(txn => {
+      const date = txn.createdAt.toISOString().split('T')[0];
+      if (!dailyDiscountStats[date]) {
+        dailyDiscountStats[date] = {
+          date,
+          discountCount: 0,
+          totalDiscountAmount: 0,
+          totalTransactions: 0
+        };
+      }
+      dailyDiscountStats[date].discountCount++;
+      dailyDiscountStats[date].totalDiscountAmount += txn.discountAmount || 0;
+      dailyDiscountStats[date].totalTransactions++;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.values(dailyDiscountStats).sort((a, b) => new Date(a.date) - new Date(b.date))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch discount usage by date',
+      error: error.message
+    });
+  }
+};
+
+// Get average order value by date
+exports.getAverageOrderValueByDate = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Group by date
+    const dailyAvgStats = {};
+    transactions.forEach(txn => {
+      const date = txn.createdAt.toISOString().split('T')[0];
+      if (!dailyAvgStats[date]) {
+        dailyAvgStats[date] = {
+          date,
+          totalRevenue: 0,
+          totalOrders: 0,
+          averageOrderValue: 0
+        };
+      }
+      dailyAvgStats[date].totalRevenue += txn.total;
+      dailyAvgStats[date].totalOrders++;
+    });
+    
+    // Calculate average order value
+    Object.values(dailyAvgStats).forEach(stat => {
+      stat.averageOrderValue = stat.totalOrders > 0 ? stat.totalRevenue / stat.totalOrders : 0;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.values(dailyAvgStats).sort((a, b) => new Date(a.date) - new Date(b.date))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch average order value by date',
+      error: error.message
+    });
+  }
+};
+
+// Get transactions by payment type
+exports.getTransactionsByPaymentType = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Group by date and payment type
+    const paymentTypeStats = {};
+    transactions.forEach(txn => {
+      const date = txn.createdAt.toISOString().split('T')[0];
+      const paymentType = txn.type;
+      
+      if (!paymentTypeStats[date]) {
+        paymentTypeStats[date] = {
+          date,
+          paymentTypes: {}
+        };
+      }
+      
+      if (!paymentTypeStats[date].paymentTypes[paymentType]) {
+        paymentTypeStats[date].paymentTypes[paymentType] = {
+          paymentType,
+          transactionCount: 0,
+          totalAmount: 0
+        };
+      }
+      
+      paymentTypeStats[date].paymentTypes[paymentType].transactionCount++;
+      paymentTypeStats[date].paymentTypes[paymentType].totalAmount += txn.total;
+    });
+    
+    // Convert to array format
+    const result = Object.keys(paymentTypeStats).map(date => ({
+      date,
+      paymentTypes: Object.values(paymentTypeStats[date].paymentTypes)
+    }));
+    
+    res.json({
+      success: true,
+      data: result.sort((a, b) => new Date(a.date) - new Date(b.date))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch transactions by payment type',
+      error: error.message
+    });
+  }
+};
+
+// Get total revenue by date
+exports.getTotalRevenueByDate = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Group by date
+    const dailyRevenueStats = {};
+    transactions.forEach(txn => {
+      const date = txn.createdAt.toISOString().split('T')[0];
+      if (!dailyRevenueStats[date]) {
+        dailyRevenueStats[date] = {
+          date,
+          totalRevenue: 0,
+          transactionCount: 0
+        };
+      }
+      dailyRevenueStats[date].totalRevenue += txn.total;
+      dailyRevenueStats[date].transactionCount++;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.values(dailyRevenueStats).sort((a, b) => new Date(a.date) - new Date(b.date))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch total revenue by date',
+      error: error.message
+    });
+  }
+};
+
+// Get most ordered dishes
+exports.getMostOrderedDishes = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const transactions = await Transaction.find({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    });
+    
+    // Count dish orders
+    const dishStats = {};
+    transactions.forEach(txn => {
+      txn.items.forEach(item => {
+        const dishName = item.itemName;
+        if (!dishStats[dishName]) {
+          dishStats[dishName] = {
+            dishName,
+            totalOrders: 0,
+            totalQuantity: 0,
+            totalRevenue: 0
+          };
+        }
+        dishStats[dishName].totalOrders++;
+        dishStats[dishName].totalQuantity += item.quantity;
+        dishStats[dishName].totalRevenue += item.subtotal;
+      });
+    });
+    
+    // Sort by total orders
+    const sortedDishes = Object.values(dishStats)
+      .sort((a, b) => b.totalOrders - a.totalOrders)
+      .slice(0, 10); // Top 10
+    
+    res.json({
+      success: true,
+      data: sortedDishes
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch most ordered dishes',
+      error: error.message
+    });
+  }
+};
+
+// Get dashboard chart data (yearly)
+exports.getDashboardChartData = async (req, res) => {
+  try {
+    const { year, restaurantId } = req.query;
+    
+    const startOfYear = new Date(year, 0, 1);
+    const endOfYear = new Date(year + 1, 0, 1);
+    
+    const monthlyStats = await Transaction.aggregate([
+      {
+        $match: {
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          createdAt: {
+            $gte: startOfYear,
+            $lt: endOfYear
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$createdAt' },
+          totalRevenue: { $sum: '$total' },
+          totalTransactions: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+    
+    // Create labels for all 12 months
+    const monthLabels = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    
+    const revenueData = new Array(12).fill(0);
+    const transactionData = new Array(12).fill(0);
+    
+    monthlyStats.forEach(stat => {
+      const monthIndex = stat._id - 1;
+      revenueData[monthIndex] = stat.totalRevenue;
+      transactionData[monthIndex] = stat.totalTransactions;
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        labels: monthLabels,
+        datasets: [
+          {
+            label: 'Revenue',
+            data: revenueData,
+            backgroundColor: '#36a2eb',
+            borderColor: '#36a2eb'
+          },
+          {
+            label: 'Transactions',
+            data: transactionData,
+            backgroundColor: '#4bc0c0',
+            borderColor: '#4bc0c0'
+          }
+        ]
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard chart data',
+      error: error.message
+    });
+  }
+};
+
+// Get weekly chart data
+exports.getWeeklyChartData = async (req, res) => {
+  try {
+    const { year, restaurantId } = req.query;
+    
+    const startOfYear = new Date(year, 0, 1);
+    const endOfYear = new Date(year + 1, 0, 1);
+    
+    const weeklyStats = await Transaction.aggregate([
+      {
+        $match: {
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          createdAt: {
+            $gte: startOfYear,
+            $lt: endOfYear
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $week: '$createdAt' },
+          totalRevenue: { $sum: '$total' },
+          totalTransactions: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        datasets: weeklyStats.map(stat => ({
+          label: `Week ${stat._id}`,
+          data: [stat.totalRevenue],
+          backgroundColor: `hsl(${stat._id * 30}, 70%, 50%)`,
+          borderColor: `hsl(${stat._id * 30}, 70%, 50%)`
+        }))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch weekly chart data',
+      error: error.message
+    });
+  }
+};
