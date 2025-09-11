@@ -17,7 +17,7 @@ const due = require('./routes/due.js')
 const devlieryTiming = require('./routes/deliverymanagement.js')
 const banner = require('./routes/banner.js')
 const order = require('./routes/orderRoute.js')
-require('./cron/reportCron');  
+// require('./cron/reportCron');  
 dotenv.config();
 
 const app = express();
