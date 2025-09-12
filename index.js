@@ -17,7 +17,11 @@ const due = require('./routes/due.js')
 const devlieryTiming = require('./routes/deliverymanagement.js')
 const banner = require('./routes/banner.js')
 const order = require('./routes/orderRoute.js')
+<<<<<<< HEAD
 const path = require("path");
+=======
+const report = require('./routes/reportRoute.js')
+>>>>>>> 436f8c3014554593ca3ad7c781b678b8677d8453
 // require('./cron/reportCron');  
 dotenv.config();
 
@@ -30,7 +34,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // DB connection
-DBConnect("mongodb://127.0.0.1:27017/dqdashboard");
+DBConnect("mongodb+srv://nileshgoyal624_db_user:nilesh774@cluster0.t0sg444.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0/dqdashboard");
 
 // Default route
 app.get("/", (req, res) => {
@@ -53,6 +57,7 @@ app.use(transactionRoutes);
 app.use(userProfileRoutes);
 app.use(order)
 app.use(banner)
+app.use(report)
 app.listen(PORT, () => {
   console.log(`🚀 Server started at http://localhost:${PORT}`);
 });
