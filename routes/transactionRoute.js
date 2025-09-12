@@ -7,7 +7,7 @@ router.get("/get-all/transaction", TransactionController.getAllTransactions);
 router.get("/transactionById/:transactionId", TransactionController.getTransactionById);
 router.post("/create/transaction", TransactionController.createTransaction);
 router.put("/:id", TransactionController.updateTransaction);
-router.delete("/:id", TransactionController.deleteTransaction);
+router.delete("/deleteTransaction/:id", TransactionController.deleteTransaction);
 
 // Extra routes
 router.get("/customer/:id", TransactionController.getTransactionByCustomer);

@@ -1,8 +1,9 @@
 const Menu = require("../model/Menu");
-const Inventory = require("../model/Inventory"); // make sure this exists
+const Inventory = require("../model/Inventory");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+
 // ---------------- Multer Config ----------------
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -17,153 +18,281 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage });
+const processSizes = (sizesData) => {
+  if (!sizesData) return [];
+  
+  try {
+    let parsedSizes = typeof sizesData === "string" ? JSON.parse(sizesData) : sizesData;
+    
+    if (!Array.isArray(parsedSizes)) return [];
+    
+    return parsedSizes
+      .map(size => ({
+        name: size.name?.trim() || size.label?.trim() || "",
+        label: size.label?.trim() || size.name?.trim() || "",
+        price: Number(size.price) || 0,
+        enabled: size.enabled !== undefined ? Boolean(size.enabled) : true
+      }))
+      .filter(size => size.name && size.price > 0);
+  } catch (error) {
+    console.error("Error processing sizes:", error);
+    return [];
+  }
+};
 
-// ---------------- CREATE MENU ITEM ----------------
-
+// Helper function to process stock items
+const processStockItems = (stockItemsData) => {
+  if (!stockItemsData) return [];
+  
+  try {
+    let parsedStockItems = typeof stockItemsData === "string" 
+      ? JSON.parse(stockItemsData) 
+      : stockItemsData;
+    
+    if (!Array.isArray(parsedStockItems)) return [];
+    
+    return parsedStockItems
+      .map(item => ({
+        stockId: item.stockId?.trim() || "",
+        quantity: Number(item.quantity) || 0
+      }))
+      .filter(item => item.stockId && item.quantity >= 0);
+  } catch (error) {
+    console.error("Error processing stock items:", error);
+    return [];
+  }
+}
 exports.createMenuItem = async (req, res) => {
   try {
-    const { itemName, price, categoryId, restaurantId, sub_category, status } = req.body;
+    const { 
+      itemName, 
+      price, 
+      categoryId, 
+      restaurantId, 
+      sub_category, 
+      status, 
+      menuId,
+      description,
+      preparationTime
+    } = req.body;
 
-    // Parse stockItems if it exists and is a string (from FormData)
-    let frontendStock = [];
-    if (req.body.stockItems) {
-      try {
-        frontendStock = typeof req.body.stockItems === 'string' 
-          ? JSON.parse(req.body.stockItems) 
-          : req.body.stockItems;
-      } catch (parseError) {
-        console.error("Error parsing stockItems:", parseError);
-        return res.status(400).json({ message: "Invalid stockItems format" });
+    console.log("=== CREATE MENU ITEM DEBUG ===");
+    console.log("Request body keys:", Object.keys(req.body));
+    console.log("Raw sizes data:", req.body.sizes);
+    console.log("Raw stockItems data:", req.body.stockItems);
+
+    // Validation
+    if (!itemName?.trim() || !categoryId || !restaurantId) {
+      return res.status(400).json({
+        message: "itemName, categoryId, and restaurantId are required.",
+      });
+    }
+
+    if (!menuId?.trim()) {
+      return res.status(400).json({
+        message: "menuId is required.",
+      });
+    }
+
+    // Check if menuId already exists
+    const existingMenu = await Menu.findOne({ menuId: menuId.trim(), restaurantId });
+    if (existingMenu) {
+      return res.status(400).json({
+        message: "Menu ID already exists for this restaurant.",
+      });
+    }
+
+    // Process base price
+    let numericPrice = null;
+    if (price) {
+      numericPrice = Number(price);
+      if (isNaN(numericPrice) || numericPrice < 0) {
+        return res.status(400).json({ message: "Price must be a valid non-negative number." });
       }
     }
 
-    // Validation
-    if (!itemName || !price || !categoryId || !restaurantId) {
-      return res.status(400).json({ message: "itemName, price, categoryId, and restaurantId are required." });
+    // Process sizes
+    const processedSizes = processSizes(req.body.sizes);
+    console.log("Processed sizes:", processedSizes);
+
+    // Process stock items
+    const processedStockItems = processStockItems(req.body.stockItems);
+    console.log("Processed stock items:", processedStockItems);
+
+    // Handle image
+    let itemImage = null;
+    if (req.file) {
+      itemImage = req.file.path.replace(/\\/g, "/");
     }
 
-    // Validate price is a number
-    const numericPrice = Number(price);
-    if (isNaN(numericPrice) || numericPrice <= 0) {
-      return res.status(400).json({ message: "Price must be a valid positive number." });
-    }
-
-    // Normalize uploaded image path
-    let itemImage = req.file ? req.file.path.replace(/\\/g, "/") : null;
-
-    // Fetch inventory items
-    const inventoryItems = await Inventory.find({ restaurantId });
-    if (!inventoryItems || inventoryItems.length === 0) {
-      console.log("No inventory items found for restaurant:", restaurantId);
-      return res.status(400).json({ message: "No inventory items found for this restaurant." });
-    }
-
-    // Merge frontend stockItems with inventory
-    const stockItems = inventoryItems.map(item => {
-      const frontendItem = frontendStock?.find(f => f.stockId === item._id.toString());
-      return {
-        stockId: item._id,
-        quantity: frontendItem ? Number(frontendItem.quantity) || 0 : 0,
-      };
-    });
-
-    // Create menu item
-    const menuItem = await Menu.create({
+    // Create menu item data
+    const menuItemData = {
+      menuId: menuId.trim(),
       itemName: itemName.trim(),
       price: numericPrice,
+      sizes: processedSizes,
       categoryId,
       restaurantId,
-      sub_category: sub_category || "",
+      sub_category: sub_category?.trim() || "",
       status: Number(status) || 1,
       itemImage,
-      stockItems,
-    });
+      stockItems: processedStockItems,
+      stock: 0,
+      description: description?.trim() || "",
+      preparationTime: preparationTime ? Number(preparationTime) : 0
+    };
 
-    console.log("Menu item created successfully:", menuItem._id);
-    res.status(201).json({ 
+    console.log("Final menu item data:", JSON.stringify(menuItemData, null, 2));
+
+    // Create menu item
+    const menuItem = await Menu.create(menuItemData);
+    await menuItem.populate("categoryId", "categoryName");
+
+    res.status(201).json({
+      success: true,
       message: "Menu item created successfully",
-      data: menuItem 
+      data: menuItem,
     });
 
   } catch (error) {
     console.error("Failed to create menu item:", error);
     
-    // Check for specific mongoose validation errors
     if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => err.message);
+      const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({ 
+        success: false,
         message: "Validation error", 
-        errors: validationErrors 
-      });
-    }
-
-    // Check for duplicate key errors
-    if (error.code === 11000) {
-      return res.status(400).json({ 
-        message: "Duplicate entry", 
-        error: error.message 
+        errors 
       });
     }
 
     res.status(500).json({ 
+      success: false,
       message: "Failed to create menu item", 
       error: error.message 
     });
   }
 };
-// Export multer middleware if you want to use it in route
+
+
+
+
+// Export multer middleware
 exports.uploadMiddleware = upload.single("itemImage");
+
 // ---------------- GET ALL MENU ITEMS ----------------
 exports.getMenuItems = async (req, res) => {
   try {
-    const menuItems = await Menu.find(); // fetch all items
+    const { restaurantId } = req.query;
+
+    // Build query filter
+    let filter = {};
+    if (restaurantId) {
+      filter.restaurantId = restaurantId;
+    }
+
+    const menuItems = await Menu.find(filter)
+      .populate("categoryId", "categoryName")
+      .sort({ createdAt: -1 });
+
     res.status(200).json(menuItems);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch menu items", error });
+    console.error("Error fetching menu items:", error);
+    res.status(500).json({
+      message: "Failed to fetch menu items",
+      error: error.message
+    });
   }
 };
+
 // ---------------- GET SINGLE MENU ITEM ----------------
 exports.getMenuItemById = async (req, res) => {
   try {
-    const { restaurantId} = req.params;
+    const { id } = req.params;
 
-    const menuItem = await Menu.findById(restaurantId)
-      .populate("categoryId", "categoryName")
-      .populate("stockItems");
+    const menuItem = await Menu.findById(id)
+      .populate("categoryId", "categoryName");
 
-    if (!menuItem) return res.status(404).json({ message: "Menu item not found" });
+    if (!menuItem) {
+      return res.status(404).json({ message: "Menu item not found" });
+    }
 
     res.status(200).json(menuItem);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch menu item", error });
+    console.error("Error fetching menu item:", error);
+    res.status(500).json({
+      message: "Failed to fetch menu item",
+      error: error.message
+    });
   }
 };
 
-// ---------------- UPDATE MENU ITEM ----------------
+
 exports.updateMenuItem = async (req, res) => {
   try {
     const { id } = req.params;
     const { itemName, price, categoryId, sub_category, stock } = req.body;
-    const updateData = { itemName, price, categoryId, sub_category, stock };
 
-    if (req.file) {
-      updateData.itemImage = req.file.path;
+    const updateData = {};
+    if (itemName) updateData.itemName = itemName.trim();
+    if (price) updateData.price = Number(price);
+    if (categoryId) updateData.categoryId = categoryId;
+    if (sub_category !== undefined) updateData.sub_category = sub_category;
+    if (stock !== undefined) updateData.stock = Number(stock);
+
+    // ✅ Handle sizes update
+    if (req.body.sizes) {
+      try {
+        updateData.sizes = typeof req.body.sizes === "string"
+          ? JSON.parse(req.body.sizes)
+          : req.body.sizes;
+      } catch (parseError) {
+        return res.status(400).json({ message: "Invalid sizes format" });
+      }
     }
 
-    const updatedMenu = await Menu.findByIdAndUpdate(id, updateData, { new: true });
+    // ✅ Handle stockItems
+    if (req.body.stockItems) {
+      try {
+        const stockItems = typeof req.body.stockItems === "string"
+          ? JSON.parse(req.body.stockItems)
+          : req.body.stockItems;
 
-    if (!updatedMenu) return res.status(404).json({ message: "Menu item not found" });
+        updateData.stockItems = stockItems.map((item) => ({
+          stockId: item.stockId || "",
+          quantity: Number(item.quantity) || 0,
+        }));
+      } catch (parseError) {
+        return res.status(400).json({ message: "Invalid stockItems format" });
+      }
+    }
 
-    res.status(200).json(updatedMenu);
+    // ✅ Handle image upload
+    if (req.file) {
+      updateData.itemImage = req.file.path.replace(/\\/g, "/");
+    }
+
+    const updatedMenu = await Menu.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    }).populate("categoryId", "categoryName");
+
+    if (!updatedMenu) {
+      return res.status(404).json({ message: "Menu item not found" });
+    }
+
+    res.status(200).json({
+      message: "Menu item updated successfully",
+      data: updatedMenu,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to update menu item", error });
+    console.error("❌ Error updating menu item:", error);
+    res.status(500).json({ message: "Failed to update menu item", error: error.message });
   }
 };
 
 
+// ---------------- UPDATE MENU ITEM STATUS ----------------
 exports.updateMenuStatus = async (req, res) => {
   try {
     const { id, status } = req.body;
@@ -177,7 +306,8 @@ exports.updateMenuStatus = async (req, res) => {
     }
 
     // Ensure status is either 0 or 1
-    if (![0, 1].includes(Number(status))) {
+    const numericStatus = Number(status);
+    if (![0, 1].includes(numericStatus)) {
       return res.status(400).json({
         success: false,
         message: "Invalid status value. Must be 0 (Inactive) or 1 (Active)",
@@ -186,9 +316,9 @@ exports.updateMenuStatus = async (req, res) => {
 
     const updatedMenu = await Menu.findByIdAndUpdate(
       id,
-      { status: Number(status) },
-      { new: true }
-    );
+      { status: numericStatus },
+      { new: true, runValidators: true }
+    ).populate("categoryId", "categoryName");
 
     if (!updatedMenu) {
       return res.status(404).json({
@@ -199,29 +329,31 @@ exports.updateMenuStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Menu item status updated successfully",
+      message: `Menu item ${numericStatus === 1 ? 'activated' : 'deactivated'} successfully`,
       data: {
-        id: updatedMenu._id,
+        _id: updatedMenu._id,
         status: updatedMenu.status,
       },
     });
   } catch (error) {
-    console.error("Error updating menu status:", error.message);
+    console.error("Error updating menu status:", error);
     res.status(500).json({
       success: false,
       message: "Server error while updating menu status",
+      error: error.message
     });
   }
 };
-// ---------------- DELETE MENU ITEM ----------------
-// controller
+
+// ---------------- DELETE MENU ITEM (SOFT DELETE) ----------------
 exports.deleteMenuItem = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Soft delete by setting status to 0
     const deletedMenu = await Menu.findByIdAndUpdate(
       id,
-      { status: 0 }, // soft delete (status 0)
+      { status: 0 },
       { new: true }
     );
 
@@ -229,9 +361,44 @@ exports.deleteMenuItem = async (req, res) => {
       return res.status(404).json({ message: "Menu item not found" });
     }
 
-    res.status(200).json({ message: "Menu item deleted successfully" });
+    res.status(200).json({
+      message: "Menu item deleted successfully",
+      data: { _id: deletedMenu._id, status: deletedMenu.status }
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to delete menu item", error });
+    console.error("Error deleting menu item:", error);
+    res.status(500).json({
+      message: "Failed to delete menu item",
+      error: error.message
+    });
+  }
+};
+
+// ---------------- HARD DELETE MENU ITEM ----------------
+exports.hardDeleteMenuItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedMenu = await Menu.findByIdAndDelete(id);
+
+    if (!deletedMenu) {
+      return res.status(404).json({ message: "Menu item not found" });
+    }
+
+    // Delete associated image file if exists
+    if (deletedMenu.itemImage && fs.existsSync(deletedMenu.itemImage)) {
+      fs.unlinkSync(deletedMenu.itemImage);
+    }
+
+    res.status(200).json({
+      message: "Menu item permanently deleted",
+      data: { _id: deletedMenu._id }
+    });
+  } catch (error) {
+    console.error("Error permanently deleting menu item:", error);
+    res.status(500).json({
+      message: "Failed to permanently delete menu item",
+      error: error.message
+    });
   }
 };

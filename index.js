@@ -17,6 +17,7 @@ const due = require('./routes/due.js')
 const devlieryTiming = require('./routes/deliverymanagement.js')
 const banner = require('./routes/banner.js')
 const order = require('./routes/orderRoute.js')
+const path = require("path");
 // require('./cron/reportCron');  
 dotenv.config();
 
@@ -27,6 +28,7 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // DB connection
 DBConnect("mongodb://127.0.0.1:27017/dqdashboard");
 

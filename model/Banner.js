@@ -3,9 +3,7 @@ const mongoose = require("mongoose");
 const bannerSchema = new mongoose.Schema(
   {
     restaurantId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // assuming you have a Restaurant model
-      required: true,
+      type:String,
     },
     banner_1: {
       type: String, 
