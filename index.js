@@ -17,11 +17,8 @@ const due = require('./routes/due.js')
 const devlieryTiming = require('./routes/deliverymanagement.js')
 const banner = require('./routes/banner.js')
 const order = require('./routes/orderRoute.js')
-// <<<<<<< HEAD
 const path = require("path");
-// =======
 const report = require('./routes/reportRoute.js')
-// >>>>>>> 436f8c3014554593ca3ad7c781b678b8677d8453
 // require('./cron/reportCron');  
 dotenv.config();
 

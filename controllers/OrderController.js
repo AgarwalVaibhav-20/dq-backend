@@ -102,33 +102,60 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
-exports.getOrdersByTable = async (req, res) => {
+exports.getActiveTables = async (req, res) => {
   try {
-    const { tableNumber } = req.params;
-    const { restaurantId } = req.query;
+    // Get restaurantId from query or body
+    const restaurantId = req.query.restaurantId || req.body.restaurantId;
 
-    let filter = { tableNumber };
-    if (restaurantId) filter.restaurantId = restaurantId;
+    if (!restaurantId) {
+      return res.status(400).json({ message: 'restaurantId is required' });
+    }
 
-    const orders = await Order.find(filter)
-      .populate("customerId", "name email")
-      .populate("deliveryId", "deliveryPerson status")
-      .sort({ createdAt: -1 });
+    // Define "active" statuses
+    const activeStatuses = ["pending", "confirmed", "preparing", "ready", "served"];
 
-    res.json({
-      success: true,
-      data: orders,
-      orders: orders
+    // Fetch active orders for this restaurant
+    const activeOrders = await Order.find({
+      restaurantId,
+      status: { $in: activeStatuses },
+    }).sort({ createdAt: 1 }); // Optional: sort by time
+
+    // Combine orders by tableNumber
+    const combinedTables = {};
+    activeOrders.forEach(order => {
+      if (!combinedTables[order.tableNumber]) {
+        combinedTables[order.tableNumber] = [];
+      }
+      combinedTables[order.tableNumber].push(order);
     });
+
+    res.status(200).json({ combinedTables });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: err.message
-    });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
+exports.getCombinedOrders = async (req, res) => {
+  try {
+    const { restaurantId } = req.query
+    const { tableNumbers } = req.body
 
+    if (!restaurantId || !tableNumbers || !Array.isArray(tableNumbers)) {
+      return res.status(400).json({ error: 'Restaurant ID and table numbers are required' })
+    }
+
+    const orders = await Order.find({
+      restaurantId,
+      tableNumber: { $in: tableNumbers },
+      status: { $ne: 'cancelled' }
+    }).populate('items.itemId')
+
+    return res.status(200).json({ success: true, orders })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to fetch combined orders' })
+  }
+}
 exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
