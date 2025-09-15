@@ -200,8 +200,8 @@ module.exports = {
       }
 
       user.isVerified = true;
-      user.verifyOTP = undefined;
-      user.otpExpiry = undefined;
+      // user.verifyOTP = undefined;
+      // user.otpExpiry = undefined;
       await user.save();
 
       console.log("✅ Account verified successfully");
