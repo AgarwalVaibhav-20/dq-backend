@@ -1,5 +1,7 @@
 const Transaction = require("../model/Transaction");
 const User = require("../model/User");
+const Restaurant = require("../model/Restaurant");
+const Customer = require("../model/Customer");
 
 // ---------------- CREATE TRANSACTION ----------------
 exports.createTransaction = async (req, res) => {
@@ -183,10 +185,16 @@ exports.getTransactionById = async (req, res) => {
     console.log(`Fetching transaction with ID: ${transactionId}`);
     
     // Try to find by transactionId first, then by _id if not found
-    let transaction = await Transaction.findOne({ transactionId });
+    let transaction = await Transaction.findOne({ transactionId })
+      .populate('customerId', 'name email phoneNumber address')
+      .populate('userId', 'name username')
+      .populate('restaurantId', 'name address phone email');
     
     if (!transaction) {
-      transaction = await Transaction.findById(transactionId);
+      transaction = await Transaction.findById(transactionId)
+        .populate('customerId', 'name email phoneNumber address')
+        .populate('userId', 'name username')
+        .populate('restaurantId', 'name address phone email');
     }
 
     if (!transaction) {
@@ -196,6 +204,7 @@ exports.getTransactionById = async (req, res) => {
       });
     }
 
+    console.log('📤 Sending transaction data:', transaction);
     res.status(200).json({
       success: true,
       data: transaction
