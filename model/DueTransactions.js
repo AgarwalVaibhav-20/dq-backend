@@ -4,7 +4,7 @@ const dueTransactionSchema = new mongoose.Schema(
   {
     customer_id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Customer", // Reference to Customer collection
+      ref: "Customer", 
     },
     total: {
       type: Number,
@@ -21,7 +21,7 @@ const dueTransactionSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // auto adds createdAt & updatedAt
+    timestamps: true,
   }
 );
 

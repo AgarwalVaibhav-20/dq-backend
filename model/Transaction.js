@@ -7,29 +7,24 @@ const transactionSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
-
-    // Who created the transaction (e.g., staff user)
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
-
-    // If transaction belongs to a registered customer
+    username:{
+      type:String
+    },
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Customer',
       default: null,
     },
-
-    // Restaurant where transaction happened
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Restaurant',
+      ref: 'User',
       required: true,
     },
-
-    // Table info (if dine-in)
     tableNumber: {
       type: String,
       required: true,
@@ -75,14 +70,13 @@ const transactionSchema = new mongoose.Schema(
       },
     ],
 
-    // Bill details
     sub_total: {
       type: Number,
       required: true,
     },
     tax: {
       type: Number,
-      default: 0, // percentage
+      default: 0,
     },
     taxAmount: {
       type: Number,
@@ -90,7 +84,7 @@ const transactionSchema = new mongoose.Schema(
     },
     discount: {
       type: Number,
-      default: 0, // percentage
+      default: 0, 
     },
     discountAmount: {
       type: Number,
@@ -154,120 +148,4 @@ transactionSchema.pre('save', function (next) {
 module.exports = mongoose.model('Transaction', transactionSchema);
 
 
-// const mongoose = require('mongoose');
 
-// const transactionSchema = new mongoose.Schema({
-//   transactionId: {
-//     type: String,
-//     unique: true,
-//     index: true
-//   },
-//   userId: {
-//     type: String
-//   },
-//   username: {
-//     type: String
-//   },
-//   customerId: {
-//     type: mongoose.Schema.Types.ObjectId,
-//     ref: 'Customer',
-//     default: null
-//   },
-//   restaurantId: {
-//     type: String
-//   },
-//   tableNumber: {
-//     type: String,
-//     required: true
-//   },
-//   items: [{
-//     itemId: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: 'Menu',
-//       required: true
-//     },
-//     itemName: {
-//       type: String,
-//       required: true
-//     },
-//     price: {
-//       type: Number,
-//       required: true
-//     },
-//     quantity: {
-//       type: Number,
-//       required: true,
-//       min: 1
-//     },
-//     selectedSubcategoryId: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: 'SubCategory',
-//       default: null
-//     },
-//     subtotal: {
-//       type: Number,
-//       required: true
-//     }
-//   }],
-//   sub_total: {
-//     type: Number,
-//     required: true
-//   },
-//   tax: {
-//     type: Number,
-//     default: 0
-//   },
-//   taxAmount: {
-//     type: Number,
-//     default: 0
-//   },
-//   discount: {
-//     type: Number,
-//     default: 0
-//   },
-//   discountAmount: {
-//     type: Number,
-//     default: 0
-//   },
-//   roundOff: {
-//     type: Number,
-//     default: 0
-//   },
-//   total: {
-//     type: Number,
-//     required: true
-//   },
-//   type: {
-//     type: String,
-//     enum: ['Cash', 'Online', 'Card', 'split'],
-//     required: true
-//   },
-//   notes: {
-//     type: String,
-//     default: ''
-//   }
-// }, {
-//   timestamps: true
-// });
-
-// // Generate unique transaction ID before saving
-// transactionSchema.pre('save', function (next) {
-//   if (!this.transactionId) {
-//     const timestamp = Date.now().toString().slice(-8);
-//     const random = Math.random().toString(36).substr(2, 4).toUpperCase();
-//     this.transactionId = `TXN${timestamp}${random}`;
-//   }
-
-//   // Calculate item subtotals
-//   this.items.forEach(item => {
-//     item.subtotal = item.price * item.quantity;
-//   });
-
-//   // Calculate tax and discount amounts
-//   this.taxAmount = (this.sub_total * this.tax) / 100;
-//   this.discountAmount = (this.sub_total * this.discount) / 100;
-
-//   next();
-// });
-
-// module.exports = mongoose.model('Transaction', transactionSchema);
