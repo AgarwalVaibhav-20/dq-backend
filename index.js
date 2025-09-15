@@ -19,6 +19,7 @@ const banner = require('./routes/banner.js')
 const order = require('./routes/orderRoute.js')
 const path = require("path");
 const report = require('./routes/reportRoute.js')
+const coupen = require('./routes/CoupenRoute.js')
 // require('./cron/reportCron');  
 dotenv.config();
 
@@ -32,7 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // DB connection
 // DBConnect("mongodb+srv://nileshgoyal624_db_user:nilesh774@cluster0.t0sg444.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0/dqdashboard");
-DBConnect('mongodb://127.0.0.1:27017/dqdashboard')
+DBConnect(process.env.MONGO_URL)
 // Default route
 app.get("/", (req, res) => {
   res.send("Hello World");
@@ -55,6 +56,7 @@ app.use(userProfileRoutes);
 app.use(order)
 app.use(banner)
 app.use(report)
+app.use(coupen)
 app.listen(PORT, () => {
   console.log(`🚀 Server started at http://localhost:${PORT}`);
 });

@@ -21,7 +21,13 @@ const customerSchema = new mongoose.Schema(
       trim: true,
     },
     restaurantId: {
-     type:String
+      type: String
+    },
+    birthday: {
+      type: Date,
+    },
+    anniversary: {
+      type: Date,
     },
   },
   { timestamps: true }

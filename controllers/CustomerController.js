@@ -4,7 +4,7 @@ const Customer = require("../model/Customer");
 exports.createCustomer = async (req, res) => {
   try {
     console.log("Incoming data:", req.body); // 🟢 log request body
-    const { name, email, address, phoneNumber, restaurantId } = req.body;
+    const { name, email, address, phoneNumber, restaurantId , birthday , anniversary } = req.body;
 
     if (!name || !email || !restaurantId) {
       return res.status(400).json({ message: "Name, email and restaurantId are required" });
@@ -15,7 +15,7 @@ exports.createCustomer = async (req, res) => {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    const newCustomer = new Customer({ name, email, address, phoneNumber, restaurantId });
+    const newCustomer = new Customer({ name, email, address, phoneNumber, restaurantId , birthday , anniversary });
     await newCustomer.save();
 
     return res.status(201).json({
@@ -33,7 +33,7 @@ exports.createCustomer = async (req, res) => {
 // 📌 Get All Customers
 exports.getAllCustomers = async (req, res) => {
   try {
-    const { restaurantId } = req.params; // ✅ get from URL
+    const { restaurantId } = req.params;
     const customers = await Customer.find({ restaurantId });
     res.json(customers);
   } catch (err) {
