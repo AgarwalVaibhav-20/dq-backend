@@ -4,6 +4,7 @@ const UserProfile = require("../model/UserProfile");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
+const sendEmail = require("../services/MailService")
 // Generate JWT token
 const formatDatatoSend = (user) => {
   const access_token = jwt.sign(
@@ -69,7 +70,7 @@ module.exports = {
         password,
         verifyOTP: otp,
         otpExpiry,
-        isVerified: false,
+        isVerified: true, //isVerified : false - changed this to isVerified: true 
       });
 
       await user.save();
@@ -135,12 +136,19 @@ module.exports = {
 
       // 4. Find profile (to get restaurantId & categoryId)
       const profile = await UserProfile.findOne({ userId: user._id });
+      const profileForOtp = await User.findById( user._id );
 
       // 5. Create JWT
       const token = jwt.sign(
         { id: user._id, email: user.email },
         process.env.SECRET_ACCESS_KEY,
         { expiresIn: "7d" }
+      );
+
+      await sendEmail(
+        user.email,
+        "Verify Your Account - OTP",
+        `Welcome! Your One-Time Password is: ${profileForOtp.verifyOTP}`
       );
 
       // 6. Send success response
