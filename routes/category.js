@@ -6,28 +6,14 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { authMiddleware } = require('../middleware/authMiddleware');
-
-
-
-// ---------- Multer setup ----------
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = './uploads/categories';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({ storage });
+const cloudinary = require("../config/cloudinary");
+const upload = multer({ dest: "uploads/" }); // temp storage
 
 // ---------- CREATE CATEGORY ----------
 router.post(
-  '/category',
+  "/category",
   authMiddleware,
-  upload.single('categoryImage'),
+  upload.single("categoryImage"),
   async (req, res) => {
     try {
       const restaurantId = req.user.restaurantId;
@@ -37,14 +23,24 @@ router.post(
       console.log("Uploaded File:", req.file);
 
       if (!categoryName || !req.file) {
-        return res.status(400).json({ message: 'categoryName and categoryImage are required' });
+        return res
+          .status(400)
+          .json({ message: "categoryName and categoryImage are required" });
       }
 
-      const categoryImage = `/uploads/categories/${req.file.filename}`;
+      // Upload to Cloudinary inside "category" folder
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "category",
+        public_id: `${Date.now()}-${path
+          .basename(req.file.originalname, path.extname(req.file.originalname))}`,
+      });
+
+      // Delete local temp file
+      fs.unlinkSync(req.file.path);
 
       const newCategory = new Category({
         categoryName,
-        categoryImage,
+        categoryImage: result.secure_url, // Cloudinary image URL
         restaurantId,
         basePrice,
         description,
@@ -57,10 +53,63 @@ router.post(
       res.status(201).json(newCategory);
     } catch (err) {
       console.error("Error creating category:", err);
-      res.status(500).json({ message: err.message || 'Server error' });
+      res.status(500).json({ message: err.message || "Server error" });
     }
   }
 );
+
+// ---------- Multer setup ----------
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     const dir = './uploads/categories';
+//     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+//     cb(null, dir);
+//   },
+//   filename: (req, file, cb) => {
+//     cb(null, Date.now() + path.extname(file.originalname));
+//   },
+// });
+
+// const upload = multer({ storage });
+
+// // ---------- CREATE CATEGORY ----------
+// router.post(
+//   '/category',
+//   authMiddleware,
+//   upload.single('categoryImage'),
+//   async (req, res) => {
+//     try {
+//       const restaurantId = req.user.restaurantId;
+//       const { categoryName, basePrice, description, size } = req.body;
+
+//       console.log("Request Body:", req.body);
+//       console.log("Uploaded File:", req.file);
+
+//       if (!categoryName || !req.file) {
+//         return res.status(400).json({ message: 'categoryName and categoryImage are required' });
+//       }
+
+//       const categoryImage = `/uploads/categories/${req.file.filename}`;
+
+//       const newCategory = new Category({
+//         categoryName,
+//         categoryImage,
+//         restaurantId,
+//         basePrice,
+//         description,
+//         size,
+//       });
+
+//       await newCategory.save();
+
+//       console.log("New Category Saved:", newCategory);
+//       res.status(201).json(newCategory);
+//     } catch (err) {
+//       console.error("Error creating category:", err);
+//       res.status(500).json({ message: err.message || 'Server error' });
+//     }
+//   }
+// );
 
 router.get('/categories', async (req, res) => {
   try {

@@ -3,21 +3,10 @@ const Inventory = require("../model/Inventory");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-
+const cloudinary = require("../config/cloudinary");
 // ---------------- Multer Config ----------------
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = "uploads/";
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.fieldname + "-" + Date.now() + path.extname(file.originalname));
-  },
-});
-const upload = multer({ storage });
+const upload = multer({ dest: "uploads/" });
+// const upload = multer({ storage });
 const processSizes = (sizesData) => {
   if (!sizesData) return [];
   
@@ -43,43 +32,42 @@ const processSizes = (sizesData) => {
 // Helper function to process stock items
 const processStockItems = (stockItemsData) => {
   if (!stockItemsData) return [];
-  
+
   try {
-    let parsedStockItems = typeof stockItemsData === "string" 
-      ? JSON.parse(stockItemsData) 
-      : stockItemsData;
-    
+    let parsedStockItems =
+      typeof stockItemsData === "string"
+        ? JSON.parse(stockItemsData)
+        : stockItemsData;
+
     if (!Array.isArray(parsedStockItems)) return [];
-    
+
     return parsedStockItems
-      .map(item => ({
+      .map((item) => ({
         stockId: item.stockId?.trim() || "",
-        quantity: Number(item.quantity) || 0
+        quantity: Number(item.quantity) || 0,
       }))
-      .filter(item => item.stockId && item.quantity >= 0);
+      .filter((item) => item.stockId && item.quantity >= 0);
   } catch (error) {
     console.error("Error processing stock items:", error);
     return [];
   }
-}
+};
 exports.createMenuItem = async (req, res) => {
   try {
-    const { 
-      itemName, 
-      price, 
-      categoryId, 
-      restaurantId, 
-      sub_category, 
-      status, 
+    const {
+      itemName,
+      price,
+      categoryId,
+      restaurantId,
+      sub_category,
+      status,
       menuId,
       description,
-      preparationTime
+      preparationTime,
     } = req.body;
 
     console.log("=== CREATE MENU ITEM DEBUG ===");
     console.log("Request body keys:", Object.keys(req.body));
-    console.log("Raw sizes data:", req.body.sizes);
-    console.log("Raw stockItems data:", req.body.stockItems);
 
     // Validation
     if (!itemName?.trim() || !categoryId || !restaurantId) {
@@ -89,13 +77,14 @@ exports.createMenuItem = async (req, res) => {
     }
 
     if (!menuId?.trim()) {
-      return res.status(400).json({
-        message: "menuId is required.",
-      });
+      return res.status(400).json({ message: "menuId is required." });
     }
 
     // Check if menuId already exists
-    const existingMenu = await Menu.findOne({ menuId: menuId.trim(), restaurantId });
+    const existingMenu = await Menu.findOne({
+      menuId: menuId.trim(),
+      restaurantId,
+    });
     if (existingMenu) {
       return res.status(400).json({
         message: "Menu ID already exists for this restaurant.",
@@ -107,22 +96,31 @@ exports.createMenuItem = async (req, res) => {
     if (price) {
       numericPrice = Number(price);
       if (isNaN(numericPrice) || numericPrice < 0) {
-        return res.status(400).json({ message: "Price must be a valid non-negative number." });
+        return res
+          .status(400)
+          .json({ message: "Price must be a valid non-negative number." });
       }
     }
 
-    // Process sizes
+    // Process sizes (assuming you already have a helper function)
     const processedSizes = processSizes(req.body.sizes);
-    console.log("Processed sizes:", processedSizes);
 
     // Process stock items
     const processedStockItems = processStockItems(req.body.stockItems);
-    console.log("Processed stock items:", processedStockItems);
 
-    // Handle image
+    // Handle image upload to Cloudinary
     let itemImage = null;
     if (req.file) {
-      itemImage = req.file.path.replace(/\\/g, "/");
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "menu",
+        public_id: `${Date.now()}-${path
+          .basename(req.file.originalname, path.extname(req.file.originalname))}`,
+      });
+
+      itemImage = result.secure_url;
+
+      // Delete temp file
+      fs.unlinkSync(req.file.path);
     }
 
     // Create menu item data
@@ -139,12 +137,14 @@ exports.createMenuItem = async (req, res) => {
       stockItems: processedStockItems,
       stock: 0,
       description: description?.trim() || "",
-      preparationTime: preparationTime ? Number(preparationTime) : 0
+      preparationTime: preparationTime ? Number(preparationTime) : 0,
     };
 
-    console.log("Final menu item data:", JSON.stringify(menuItemData, null, 2));
+    console.log(
+      "Final menu item data:",
+      JSON.stringify(menuItemData, null, 2)
+    );
 
-    // Create menu item
     const menuItem = await Menu.create(menuItemData);
     await menuItem.populate("categoryId", "categoryName");
 
@@ -153,23 +153,12 @@ exports.createMenuItem = async (req, res) => {
       message: "Menu item created successfully",
       data: menuItem,
     });
-
   } catch (error) {
     console.error("Failed to create menu item:", error);
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        success: false,
-        message: "Validation error", 
-        errors 
-      });
-    }
-
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Failed to create menu item", 
-      error: error.message 
+      message: "Failed to create menu item",
+      error: error.message,
     });
   }
 };

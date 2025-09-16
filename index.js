@@ -20,6 +20,7 @@ const order = require('./routes/orderRoute.js')
 const path = require("path");
 const report = require('./routes/reportRoute.js')
 const coupen = require('./routes/CoupenRoute.js')
+const uploadRoute =require("./routes/uploadRoute.js");
 // require('./cron/reportCron');  
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.use(order)
 app.use(banner)
 app.use(report)
 app.use(coupen)
+app.use(uploadRoute);
 app.listen(PORT, () => {
   console.log(`🚀 Server started at http://localhost:${PORT}`);
 });
