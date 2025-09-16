@@ -36,6 +36,37 @@ exports.getAllDueTransactions = async (req, res) => {
     res.status(500).json({ message: "Error fetching Due", error: err.message });
   }
 }
+
+// ---------------- GET DUE TRANSACTIONS BY CUSTOMER ----------------
+exports.getDueTransactionsByCustomer = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    
+    if (!customerId) {
+      return res.status(400).json({
+        message: "Customer ID is required",
+        success: false
+      });
+    }
+
+    const dues = await DueTransaction.find({ customer_id: customerId })
+      .populate('customer_id', 'name customerName email phone')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: "Customer dues retrieved successfully",
+      success: true,
+      data: dues
+    });
+  } catch (error) {
+    console.error("Error fetching customer dues:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      success: false,
+      error: error.message
+    });
+  }
+}
 exports.deleteDueTransaction = async (req, res) => {
   try {
     const { id } = req.params;
