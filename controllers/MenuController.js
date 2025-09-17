@@ -220,7 +220,15 @@ exports.getMenuItemById = async (req, res) => {
 exports.updateMenuItem = async (req, res) => {
   try {
     const { id } = req.params;
-    const { itemName, price, categoryId, sub_category, stock } = req.body;
+    const {
+      itemName,
+      price,
+      categoryId,
+      sub_category,
+      stock,
+      sizes,
+      stockItems,
+    } = req.body;
 
     const updateData = {};
     if (itemName) updateData.itemName = itemName.trim();
@@ -230,24 +238,22 @@ exports.updateMenuItem = async (req, res) => {
     if (stock !== undefined) updateData.stock = Number(stock);
 
     // ✅ Handle sizes update
-    if (req.body.sizes) {
+    if (sizes) {
       try {
-        updateData.sizes = typeof req.body.sizes === "string"
-          ? JSON.parse(req.body.sizes)
-          : req.body.sizes;
+        updateData.sizes =
+          typeof sizes === "string" ? JSON.parse(sizes) : sizes;
       } catch (parseError) {
         return res.status(400).json({ message: "Invalid sizes format" });
       }
     }
 
     // ✅ Handle stockItems
-    if (req.body.stockItems) {
+    if (stockItems) {
       try {
-        const stockItems = typeof req.body.stockItems === "string"
-          ? JSON.parse(req.body.stockItems)
-          : req.body.stockItems;
+        const parsedStockItems =
+          typeof stockItems === "string" ? JSON.parse(stockItems) : stockItems;
 
-        updateData.stockItems = stockItems.map((item) => ({
+        updateData.stockItems = parsedStockItems.map((item) => ({
           stockId: item.stockId || "",
           quantity: Number(item.quantity) || 0,
         }));
@@ -258,7 +264,38 @@ exports.updateMenuItem = async (req, res) => {
 
     // ✅ Handle image upload
     if (req.file) {
-      updateData.itemImage = req.file.path.replace(/\\/g, "/");
+      // find existing menu item (to remove old image if needed)
+      const existingMenu = await Menu.findById(id);
+
+      // upload new file to cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "menu",
+        public_id: `${Date.now()}-${path.basename(
+          req.file.originalname,
+          path.extname(req.file.originalname)
+        )}`,
+      });
+
+      updateData.itemImage = result.secure_url;
+
+      // delete temp file
+      fs.unlinkSync(req.file.path);
+
+      // optionally delete old Cloudinary image
+      if (existingMenu?.itemImage) {
+        try {
+          // extract public_id from URL
+          const publicId = existingMenu.itemImage
+            .split("/")
+            .slice(-2)
+            .join("/")
+            .split(".")[0]; // folder/fileName (without extension)
+
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("Failed to delete old image:", err.message);
+        }
+      }
     }
 
     const updatedMenu = await Menu.findByIdAndUpdate(id, updateData, {
@@ -276,9 +313,12 @@ exports.updateMenuItem = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error updating menu item:", error);
-    res.status(500).json({ message: "Failed to update menu item", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to update menu item", error: error.message });
   }
 };
+
 
 
 // ---------------- UPDATE MENU ITEM STATUS ----------------

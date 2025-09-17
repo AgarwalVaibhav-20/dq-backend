@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require('mongoose')
 const cors = require("cors");
 const dotenv = require("dotenv");
 const DBConnect = require("./DB/DBconnect.js");
@@ -35,6 +36,17 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // DB connection
 // DBConnect("mongodb+srv://nileshgoyal624_db_user:nilesh774@cluster0.t0sg444.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0/dqdashboard");
 DBConnect(process.env.MONGO_URL)
+mongoose.connection.on("connected", () => {
+  console.log("✅ Mongoose connected to MongoDB Atlas");
+});
+
+mongoose.connection.on("error", (err) => {
+  console.error("❌ Mongoose connection error:", err);
+});
+
+mongoose.connection.on("disconnected", () => {
+  console.log("⚠️ Mongoose disconnected");
+});
 // Default route
 app.get("/", (req, res) => {
   res.send("Hello World");

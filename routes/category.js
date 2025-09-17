@@ -133,20 +133,50 @@ router.get('/category/:id', async (req, res) => {
 });
 
 // ---------- UPDATE CATEGORY ----------
-router.post('category/update/:id', upload.single('categoryImage'), async (req, res) => {
-  try {
-    const { categoryName, restaurantId } = req.body;
-    const updateData = {};
-    if (categoryName) updateData.categoryName = categoryName;
-    if (restaurantId) updateData.restaurantId = restaurantId;
-    if (req.file) updateData.categoryImage = req.file.path;
+router.post(
+  "/category/update/:id",
+  upload.single("categoryImage"),
+  async (req, res) => {
+    try {
+      const { categoryName, restaurantId } = req.body;
+      const updateData = {};
 
-    const updatedCategory = await Category.findByIdAndUpdate(req.params.id, updateData, { new: true });
-    res.json(updatedCategory);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+      if (categoryName) updateData.categoryName = categoryName;
+      if (restaurantId) updateData.restaurantId = restaurantId;
+
+      // If new image uploaded
+      if (req.file) {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "category",
+          public_id: `${Date.now()}-${path.basename(
+            req.file.originalname,
+            path.extname(req.file.originalname)
+          )}`,
+        });
+
+        fs.unlinkSync(req.file.path); // remove temp file
+
+        updateData.categoryImage = result.secure_url;
+      }
+
+      const updatedCategory = await Category.findByIdAndUpdate(
+        req.params.id,
+        updateData,
+        { new: true }
+      );
+
+      if (!updatedCategory) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+
+      res.json(updatedCategory);
+    } catch (err) {
+      console.error("Error updating category:", err);
+      res.status(500).json({ message: err.message || "Server error" });
+    }
   }
-});
+);
+
 
 // ---------- DELETE CATEGORY ----------
 router.delete('/delete/category/:id', async (req, res) => {

@@ -136,7 +136,7 @@ module.exports = {
 
       // 4. Find profile (to get restaurantId & categoryId)
       const profile = await UserProfile.findOne({ userId: user._id });
-      const profileForOtp = await User.findById( user._id );
+      const profileForOtp = await User.findById(user._id);
 
       // 5. Create JWT
       const token = jwt.sign(
@@ -160,7 +160,7 @@ module.exports = {
           id: user._id,
           email: user.email,
           username: user.username,
-          userId: user._id,  
+          userId: user._id,
           restaurantId: profile?.restaurantId || null,
           profileImage: profile?.profileImage || null,
         }
@@ -341,22 +341,49 @@ module.exports = {
       });
     }
   },
-   async getAllUsers(req, res) {
-  try {
-    const users = await User.find().select("-password");
-    res.status(200).json({
-      success: true,
-      count: users.length,
-      users,
-    });
-  } catch (error) {
-    console.error("Error fetching users:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching users",
-    });
+  async getAllUsers(req, res) {
+    try {
+      const users = await User.find().select("-password");
+      res.status(200).json({
+        success: true,
+        count: users.length,
+        users,
+      });
+    } catch (error) {
+      console.error("Error fetching users:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Server error while fetching users",
+      });
+    }
+  },
+  async updateUserRole(req, res) {
+    try {
+      const { role, permissions } = req.body;
+
+      // Assume you already decoded JWT and attached user to req.user
+      const id = req.user.id;
+
+      console.log("Updating user:", id, "with role:", role, "and permissions:", permissions);
+
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (role) user.role = role;
+      if (permissions) user.permissions = permissions;
+
+      await user.save();
+
+      res.json({
+        message: "User updated successfully",
+        user,
+      });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
   }
-}
 }
 
 
