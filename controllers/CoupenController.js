@@ -80,6 +80,76 @@ exports.getCouponById = async (req, res) => {
   }
 };
 
+// ➤ Validate coupon by code
+exports.validateCouponByCode = async (req, res) => {
+  try {
+    const { couponCode, orderTotal = 0 } = req.body;
+
+    if (!couponCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Coupon code is required",
+      });
+    }
+
+    const coupon = await Coupon.findOne({ 
+      code: couponCode.toUpperCase(),
+      isActive: true 
+    });
+
+    if (!coupon) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid Coupon",
+      });
+    }
+
+    // validate
+    const validity = coupon.isValid();
+    if (!validity.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validity.message,
+      });
+    }
+
+    // calculate discount
+    const discount = coupon.calculateDiscount(orderTotal);
+    if (!discount.applicable) {
+      return res.status(400).json({
+        success: false,
+        message: discount.message,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Coupon is valid",
+      coupon: {
+        id: coupon._id,
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        discountAmount: discount.discountAmount,
+        minOrderValue: coupon.minOrderValue,
+        maxDiscountAmount: coupon.maxDiscountAmount,
+        expiryDate: coupon.expiryDate,
+        usageCount: coupon.usageCount,
+        maxUsage: coupon.maxUsage,
+        description: coupon.description,
+        isActive: coupon.isActive
+      },
+    });
+  } catch (error) {
+    console.error("Error validating coupon:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to validate coupon",
+      error: error.message,
+    });
+  }
+};
+
 // ➤ Apply coupon
 exports.applyCoupon = async (req, res) => {
   try {

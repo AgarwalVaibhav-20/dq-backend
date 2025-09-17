@@ -29,8 +29,7 @@ router.get('/tableUsageByDate', authMiddleware, ReportsController.getTableUsageB
 // Get payment type report
 router.post('/getReportPaymentType', authMiddleware, ReportsController.getPaymentTypeReport);
 
-// Get dashboard statistics report
-router.get('/reports/:restaurantId', authMiddleware, ReportsController.getDashboardStatisticsReport);
+// Dashboard statistics report moved to dashboardRoute.js
 
 // Get discount usage by date
 router.get('/discountUsageByDate', authMiddleware, ReportsController.getDiscountUsageByDate);

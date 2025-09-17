@@ -25,7 +25,7 @@ const getDateRanges = () => {
 };
 
 // 1. Overall Report - This should match the route /reports/:restaurantId
-exports.getOverallReport = async (req, res) => {
+const getOverallReport = async (req, res) => {
   try {
     const { restaurantId } = req.params;
     const dateRanges = getDateRanges();
@@ -37,28 +37,27 @@ exports.getOverallReport = async (req, res) => {
     for (const period of periods) {
       const { start, end } = dateRanges[period];
       
-      // Get transactions for this period
-      const transactions = await Transaction.find({
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        createdAt: { $gte: start, $lt: end }
-      });
-
       // Get orders for this period
-      const completedOrders = await Order.countDocuments({
+      const orders = await Order.find({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        status: 'completed',
         createdAt: { $gte: start, $lt: end }
       });
 
-      const rejectedOrders = await Order.countDocuments({
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        status: 'rejected',
-        createdAt: { $gte: start, $lt: end }
-      });
+      // Calculate collection (total subtotal from orders)
+      const totalCollection = orders.reduce((sum, order) => sum + (order.subtotal || 0), 0);
 
-      // Calculate totals
-      const totalCollection = transactions.reduce((sum, txn) => sum + (txn.total || 0), 0);
-      const totalInvoices = transactions.length;
+      // Calculate total invoices (orders with invoiceGenerated: true)
+      const totalInvoices = orders.filter(order => order.invoiceGenerated === true).length;
+
+      // Calculate completed orders (orders with paymentStatus: 'completed' or 'paid')
+      const completedOrders = orders.filter(order => 
+        order.paymentStatus === 'completed' || order.paymentStatus === 'paid'
+      ).length;
+
+      // Calculate rejected orders (orders with paymentStatus: 'rejected' or 'cancelled')
+      const rejectedOrders = orders.filter(order => 
+        order.paymentStatus === 'rejected' || order.paymentStatus === 'cancelled'
+      ).length;
 
       // Set the exact property names your frontend expects
       const periodCapitalized = period.charAt(0).toUpperCase() + period.slice(1);
@@ -69,6 +68,7 @@ exports.getOverallReport = async (req, res) => {
       report[`totalRejectOrder${periodCapitalized}`] = rejectedOrders;
     }
 
+    console.log('Overall Report Data:', report);
     res.json({
       success: true,
       data: report
@@ -85,7 +85,7 @@ exports.getOverallReport = async (req, res) => {
 };
 
 // 2. Chart Data - This should match the route /dashboard/chart-data
-exports.getDashboardChartData = async (req, res) => {
+const getDashboardChartData = async (req, res) => {
   try {
     const { year, restaurantId } = req.query;
     
@@ -99,7 +99,7 @@ exports.getDashboardChartData = async (req, res) => {
     const startOfYear = new Date(parseInt(year), 0, 1);
     const endOfYear = new Date(parseInt(year) + 1, 0, 1);
     
-    const monthlyStats = await Transaction.aggregate([
+    const monthlyStats = await Order.aggregate([
       {
         $match: {
           restaurantId: new mongoose.Types.ObjectId(restaurantId),
@@ -112,8 +112,8 @@ exports.getDashboardChartData = async (req, res) => {
       {
         $group: {
           _id: { $month: '$createdAt' },
-          totalRevenue: { $sum: '$total' },
-          totalTransactions: { $sum: 1 }
+          totalRevenue: { $sum: '$subtotal' },
+          totalOrders: { $sum: 1 }
         }
       },
       {
@@ -128,12 +128,12 @@ exports.getDashboardChartData = async (req, res) => {
     ];
     
     const revenueData = new Array(12).fill(0);
-    const transactionData = new Array(12).fill(0);
+    const orderData = new Array(12).fill(0);
     
     monthlyStats.forEach(stat => {
       const monthIndex = stat._id - 1;
       revenueData[monthIndex] = stat.totalRevenue;
-      transactionData[monthIndex] = stat.totalTransactions;
+      orderData[monthIndex] = stat.totalOrders;
     });
     
     res.json({
@@ -149,8 +149,8 @@ exports.getDashboardChartData = async (req, res) => {
           fill: false
         },
         {
-          label: 'Transactions',
-          data: transactionData,
+          label: 'Orders',
+          data: orderData,
           backgroundColor: 'rgba(255, 99, 132, 0.2)',
           borderColor: 'rgba(255, 99, 132, 1)',
           borderWidth: 2,
@@ -169,7 +169,7 @@ exports.getDashboardChartData = async (req, res) => {
 };
 
 // 3. Weekly Chart Data - This should match the route /dashboard/weekly-chart-data
-exports.getWeeklyChartData = async (req, res) => {
+const getWeeklyChartData = async (req, res) => {
   try {
     const { year, restaurantId } = req.query;
     
@@ -184,7 +184,7 @@ exports.getWeeklyChartData = async (req, res) => {
     const endOfYear = new Date(parseInt(year) + 1, 0, 1);
     
     // Get monthly data for pie chart (weeks are too granular for pie chart)
-    const monthlyStats = await Transaction.aggregate([
+    const monthlyStats = await Order.aggregate([
       {
         $match: {
           restaurantId: new mongoose.Types.ObjectId(restaurantId),
@@ -197,7 +197,7 @@ exports.getWeeklyChartData = async (req, res) => {
       {
         $group: {
           _id: { $month: '$createdAt' },
-          totalRevenue: { $sum: '$total' }
+          totalRevenue: { $sum: '$subtotal' }
         }
       },
       {
@@ -240,7 +240,7 @@ exports.getWeeklyChartData = async (req, res) => {
 };
 
 // 4. Payment Type Report - This should match the route /getReportPaymentType  
-exports.getPaymentTypeReport = async (req, res) => {
+const getPaymentTypeReport = async (req, res) => {
   try {
     const { restaurantId, startDate, endDate } = req.body;
     

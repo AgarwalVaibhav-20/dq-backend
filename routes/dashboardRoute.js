@@ -7,36 +7,15 @@ const {
   getDashboardChartData,
   getWeeklyChartData,
   getPaymentTypeReport
-} = require('../controllers/reportController'); // Adjust path as needed
+} = require('../controllers/DashboardController');
 
-// Authentication middleware (adjust as needed for your app)
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Access token is required' 
-    });
-  }
-  
-  // Add your token verification logic here
-  // For example, if using JWT:
-  // jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-  //   if (err) return res.status(403).json({ success: false, message: 'Invalid token' });
-  //   req.user = user;
-  //   next();
-  // });
-  
-  // For now, just pass through (remove this in production)
-  next();
-};
+// Import proper authentication middleware
+const { authMiddleware } = require('../middleware/authMiddleware');
 
 // Routes that match your frontend calls
-router.get('/reports/:restaurantId', authenticateToken, getOverallReport);
-router.get('/dashboard/chart-data', authenticateToken, getDashboardChartData);
-router.get('/dashboard/weekly-chart-data', authenticateToken, getWeeklyChartData);
-router.post('/getReportPaymentType', authenticateToken, getPaymentTypeReport);
+router.get('/reports/:restaurantId', authMiddleware, getOverallReport);
+router.get('/dashboard/chart-data', authMiddleware, getDashboardChartData);
+router.get('/dashboard/weekly-chart-data', authMiddleware, getWeeklyChartData);
+router.post('/getReportPaymentType', authMiddleware, getPaymentTypeReport);
 
 module.exports = router;
