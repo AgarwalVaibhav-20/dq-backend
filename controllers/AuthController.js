@@ -134,9 +134,12 @@ module.exports = {
         });
       }
 
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
       // 4. Find profile (to get restaurantId & categoryId)
       const profile = await UserProfile.findOne({ userId: user._id });
-      const profileForOtp = await User.findById(user._id);
+      const profileForOtp = await User.findByIdAndUpdate(user._id, {verifyOTP: otp, otpExpiry}, {new:true});
 
       // 5. Create JWT
       const token = jwt.sign(
@@ -148,7 +151,7 @@ module.exports = {
       await sendEmail(
         user.email,
         "Verify Your Account - OTP",
-        `Welcome! Your One-Time Password is: ${profileForOtp.verifyOTP}`
+        `Welcome! Your One-Time Password is : ${profileForOtp.verifyOTP} (Valid for only 10 minutes)`
       );
 
       // 6. Send success response
@@ -236,6 +239,11 @@ module.exports = {
       await user.save();
 
       // TODO: send OTP via nodemailer here
+      await sendEmail(
+        user.email,
+        "Forgot password - OTP",
+        `Welcome! Your One-Time Password is : ${otp} (Valid for only 10 minutes)`
+      );
       if (process.env.NODE_ENV !== "production") {
         console.log(`📩 Reset OTP for ${email}: ${otp}`);
       }
