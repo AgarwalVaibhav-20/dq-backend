@@ -46,9 +46,9 @@ const userSchema = new mongoose.Schema(
     permissions: {
       type: Object,
       default: {
-        canAdd: false,
-        canEdit: false,
-        canDelete: false,
+        canAdd: true,
+        canEdit: true,
+        canDelete: true,
         canView: true,
       },
     },

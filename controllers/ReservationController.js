@@ -37,27 +37,31 @@ exports.getAllReservations = async (req, res) => {
   try {
     const { restaurantId } = req.params;
 
+    console.log("🔍 Searching for reservations with restaurantId:", restaurantId);
+
     // Populate customer data if you have a reference
     const reservations = await Reservation.find({ restaurantId })
       .populate('customerId', 'name phoneNumber address') // Adjust field names as per your Customer model
       .exec();
 
+    console.log("📊 Found reservations:", reservations.length);
+
     // Transform data to match frontend expectations
     const transformedReservations = reservations.map(reservation => ({
-      reservationDetails: {
-        id: reservation._id, // or use a numeric ID if you have one
-        _id: reservation._id,
-        startTime: reservation.startTime,
-        endTime: reservation.endTime,
-        payment: reservation.payment,
-        advance: reservation.advance,
-        notes: reservation.notes,
-        tableNumber: reservation.tableNumber,
-        customerId: reservation.customerId?._id || reservation.customerId
-      },
-      customerName: reservation.customerId?.name || 'N/A',
+      _id: reservation._id,
+      id: reservation._id,
+      startTime: reservation.startTime,
+      endTime: reservation.endTime,
+      payment: reservation.payment,
+      advance: reservation.advance,
+      notes: reservation.notes,
+      tableNumber: reservation.tableNumber,
+      customerId: reservation.customerId?._id || reservation.customerId,
+      customerName: reservation.customerId?.name || reservation.customerName || 'N/A',
       customerPhoneNumber: reservation.customerId?.phoneNumber || 'N/A',
-      customerAddress: reservation.customerId?.address || 'N/A'
+      customerAddress: reservation.customerId?.address || 'N/A',
+      createdAt: reservation.createdAt,
+      updatedAt: reservation.updatedAt
     }));
 
     res.json(transformedReservations);
@@ -65,6 +69,69 @@ exports.getAllReservations = async (req, res) => {
     console.log(err, "reservation err");
     res.status(500).json({
       message: "Error fetching reservations",
+      error: err.message,
+    });
+  }
+};
+
+// 📌 Get ALL reservations (for debugging)
+exports.getAllReservationsDebug = async (req, res) => {
+  try {
+    console.log("🔍 Getting ALL reservations for debugging...");
+
+    // Get all reservations without filtering
+    const allReservations = await Reservation.find({})
+      .populate('customerId', 'name phoneNumber address')
+      .exec();
+
+    console.log("📊 Total reservations in database:", allReservations.length);
+    
+    // Group by restaurantId to see distribution
+    const groupedByRestaurant = {};
+    allReservations.forEach(reservation => {
+      const restaurantId = reservation.restaurantId;
+      if (!groupedByRestaurant[restaurantId]) {
+        groupedByRestaurant[restaurantId] = [];
+      }
+      groupedByRestaurant[restaurantId].push(reservation);
+    });
+
+    console.log("📊 Reservations grouped by restaurantId:", Object.keys(groupedByRestaurant).map(id => ({
+      restaurantId: id,
+      count: groupedByRestaurant[id].length
+    })));
+
+    // Transform data to match frontend expectations
+    const transformedReservations = allReservations.map(reservation => ({
+      _id: reservation._id,
+      id: reservation._id,
+      restaurantId: reservation.restaurantId, // Include restaurantId for debugging
+      startTime: reservation.startTime,
+      endTime: reservation.endTime,
+      payment: reservation.payment,
+      advance: reservation.advance,
+      notes: reservation.notes,
+      tableNumber: reservation.tableNumber,
+      customerId: reservation.customerId?._id || reservation.customerId,
+      customerName: reservation.customerId?.name || reservation.customerName || 'N/A',
+      customerPhoneNumber: reservation.customerId?.phoneNumber || 'N/A',
+      customerAddress: reservation.customerId?.address || 'N/A',
+      createdAt: reservation.createdAt,
+      updatedAt: reservation.updatedAt
+    }));
+
+    res.json({
+      totalCount: transformedReservations.length,
+      groupedByRestaurant: Object.keys(groupedByRestaurant).map(id => ({
+        restaurantId: id,
+        count: groupedByRestaurant[id].length
+      })),
+      reservations: transformedReservations
+    });
+  } catch (err) {
+    console.log(err, "reservation debug err");
+    res.status(500).json({
+      message: "Error fetching all reservations",
       error: err.message,
     });
   }

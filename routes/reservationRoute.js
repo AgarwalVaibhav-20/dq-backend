@@ -9,6 +9,9 @@ router.post("/reservations/add", authMiddleware, reservationController.createRes
 // Get all reservations (Admin/Manager only)
 router.get("/AllByRestaurantId/:restaurantId", reservationController.getAllReservations);
 
+// Debug route to get all reservations
+router.get("/debug/all", reservationController.getAllReservationsDebug);
+
 // Get reservations by restaurant
 // router.get("/restaurant/:restaurantId", authMiddleware, reservationController.getReservationsByRestaurant);
 

@@ -368,11 +368,9 @@ module.exports = {
   async updateUserRole(req, res) {
     try {
       const { role, permissions } = req.body;
+      const { id } = req.params; // Get user ID from URL parameter
 
-      // Assume you already decoded JWT and attached user to req.user
-      const id = req.user.id;
-
-      console.log("Updating user:", id, "with role:", role, "and permissions:", permissions);
+      console.log("🔄 Updating user:", id, "with role:", role, "and permissions:", permissions);
 
       const user = await User.findById(id);
       if (!user) {
@@ -384,11 +382,16 @@ module.exports = {
 
       await user.save();
 
+      console.log("✅ User updated successfully:", user.username, "new role:", user.role);
+
       res.json({
         message: "User updated successfully",
+        userId: user._id,
+        role: user.role,
         user,
       });
     } catch (err) {
+      console.error("❌ Error updating user role:", err);
       res.status(500).json({ message: err.message });
     }
   }
