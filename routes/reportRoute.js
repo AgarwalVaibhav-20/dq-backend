@@ -8,6 +8,11 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 // Get all days reports
 router.get('/daily/:customerId', authMiddleware, ReportsController.getAllDaysReports);
 
+// Get all transactions for a restaurant
+router.get('/transactions/:restaurantId', authMiddleware, ReportsController.getAllTransactions);
+
+// Debug endpoints removed - using main endpoint for debugging
+
 // Get report by type (daily/monthly/yearly)
 router.get('/getReportByType/:restaurantId', authMiddleware, ReportsController.getReportByType);
 

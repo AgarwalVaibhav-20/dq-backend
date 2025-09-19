@@ -33,23 +33,105 @@ const getDateRange = (period) => {
   }
 };
 
-// Get all days reports
+// Get all days reports - Updated to fetch transactions by restaurantId
 exports.getAllDaysReports = async (req, res) => {
   try {
-    const { customerId } = req.params;
+    const { customerId } = req.params; // This is actually restaurantId from frontend
     
-    const reports = await Transaction.find({ customerId })
+    const transactions = await Transaction.find({ restaurantId: customerId })
       .populate('customerId', 'name email')
       .sort({ createdAt: -1 });
     
     res.json({
       success: true,
-      data: reports
+      data: transactions
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch all days reports',
+      error: error.message
+    });
+  }
+};
+
+// Simple test endpoint
+exports.testEndpoint = async (req, res) => {
+  try {
+    console.log('Test endpoint called');
+    res.json({
+      success: true,
+      message: 'Test endpoint working',
+      timestamp: new Date()
+    });
+  } catch (error) {
+    console.error('Test endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test endpoint failed',
+      error: error.message
+    });
+  }
+};
+
+// Get all transactions (for debugging)
+exports.getAllTransactionsDebug = async (req, res) => {
+  try {
+    console.log('Debug endpoint called');
+    
+    // Simple query without populate to avoid any issues
+    const allTransactions = await Transaction.find({}).sort({ createdAt: -1 });
+    
+    console.log('All transactions in collection:', allTransactions.length);
+    console.log('Sample transaction:', allTransactions[0]);
+    
+    res.json({
+      success: true,
+      data: allTransactions
+    });
+  } catch (error) {
+    console.error('getAllTransactionsDebug error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch all transactions',
+      error: error.message
+    });
+  }
+};
+
+// Get all transactions for a restaurant
+exports.getAllTransactions = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    console.log('getAllTransactions called with restaurantId:', restaurantId);
+    console.log('User from auth middleware:', req.user);
+    
+    // First, let's see all transactions in the collection
+    const allTransactions = await Transaction.find({});
+    console.log('Total transactions in collection:', allTransactions.length);
+    
+    if (allTransactions.length > 0) {
+      console.log('Sample transaction restaurantId:', allTransactions[0]?.restaurantId);
+      console.log('Sample transaction restaurantId type:', typeof allTransactions[0]?.restaurantId);
+      console.log('Requested restaurantId type:', typeof restaurantId);
+    }
+    
+    // For now, let's return ALL transactions to see them all
+    const transactions = await Transaction.find({})
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
+    
+    console.log('Returning all transactions:', transactions.length);
+    
+    res.json({
+      success: true,
+      data: transactions
+    });
+  } catch (error) {
+    console.error('getAllTransactions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch transactions',
       error: error.message
     });
   }

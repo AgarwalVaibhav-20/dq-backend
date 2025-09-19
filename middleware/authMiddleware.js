@@ -6,28 +6,39 @@ dotenv.config();
 const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers["authorization"];
+    console.log('Auth header:', authHeader);
+    console.log('Request URL:', req.url);
+    console.log('Request method:', req.method);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log('No token provided');
       return res.status(401).json({ message: "No token provided" });
     }
 
     const token = authHeader.split(" ")[1];
+    console.log('Token:', token);
 
     jwt.verify(token, process.env.SECRET_ACCESS_KEY, async (err, decoded) => {
       if (err) {
+        console.log('Token verification error:', err);
         return res.status(403).json({ message: "Invalid token" });
       }
 
+      console.log('Decoded token:', decoded);
       // ✅ decoded.id comes from login/signup
       const user = await User.findById(decoded.id);
-      if (!user) return res.status(404).json({ message: 'User not found' });
+      if (!user) {
+        console.log('User not found with id:', decoded.id);
+        return res.status(404).json({ message: 'User not found' });
+      }
 
+      console.log('User found:', user._id);
       req.user = user;
       req.userId = user._id;  
       next();
     });
   } catch (err) {
-    console.error(err);
+    console.error('Auth middleware error:', err);
     res.status(500).json({ message: "Server error in authMiddleware" });
   }
 };

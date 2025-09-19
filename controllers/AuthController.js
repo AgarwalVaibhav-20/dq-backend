@@ -18,6 +18,7 @@ const formatDatatoSend = (user) => {
     profilePhoto: user.profilePhoto,
     username: user.username,
     email: user.email,
+    role: user.role,
     isVerified: user.isVerified,
   };
 };
@@ -164,6 +165,7 @@ module.exports = {
           email: user.email,
           username: user.username,
           userId: user._id,
+          role: user.role,
           restaurantId: profile?.restaurantId || null,
           profileImage: profile?.profileImage || null,
         }
@@ -313,6 +315,7 @@ module.exports = {
           id: user._id,
           username: user.username,
           email: user.email,
+          role: user.role,
           isVerified: user.isVerified,
           profilePhoto: user.profilePhoto || null,
         },
