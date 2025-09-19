@@ -99,6 +99,8 @@ exports.createTransaction = async (req, res) => {
       customerId,
       transactionId,
     });
+    console.log("Incoming customerId:", customerId);
+
 
     const savedTransaction = await newTransaction.save();
 

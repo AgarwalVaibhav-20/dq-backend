@@ -7,5 +7,5 @@ const {authMiddleware} = require("../middleware/authMiddleware");
 router.post("/assign", authMiddleware, DeliveryManagementController.createDelivery);
 router.put("/delivery-timings/:id/status", authMiddleware, DeliveryManagementController.updateDeliveryStatus);
 router.get("/delivery-timings/:restaurantId", authMiddleware, DeliveryManagementController.getAllDeliveries);
-
+router.delete('/deliveries/:id', authMiddleware, DeliveryManagementController.deleteDelivery);
 module.exports = router;

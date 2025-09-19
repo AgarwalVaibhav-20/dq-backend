@@ -12,13 +12,12 @@ const transactionSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    username:{
-      type:String
+    username: {
+      type: String
     },
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Customer',
-      default: null,
     },
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -84,7 +83,7 @@ const transactionSchema = new mongoose.Schema(
     },
     discount: {
       type: Number,
-      default: 0, 
+      default: 0,
     },
     discountAmount: {
       type: Number,
