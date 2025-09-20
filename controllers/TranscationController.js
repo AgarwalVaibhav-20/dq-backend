@@ -1,7 +1,7 @@
 const Transaction = require("../model/Transaction");
 const User = require("../model/User");
-const Restaurant = require("../model/Restaurant");
-const Customer = require("../model/Customer");
+// const Restaurant = require("../model/Restaurant");
+// const Customer = require("../model/Customer");
 
 // ---------------- CREATE TRANSACTION ----------------
 exports.createTransaction = async (req, res) => {
