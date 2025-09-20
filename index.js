@@ -13,8 +13,8 @@ const inventory = require('./routes/inventoryRoute.js')
 const reservation = require('./routes/reservationRoute.js')
 const menu = require('./routes/menu.js')
 const subcategory = require('./routes/subcategory.js')
-const qr = require('./routes/QrRoutes.js')
-const floor = require('./routes/floorRoute.js')
+// const qr = require('./routes/QrRoutes.js')
+// const floor = require('./routes/floorRoute.js')
 const due = require('./routes/due.js')
 const devlieryTiming = require('./routes/deliverymanagement.js')
 const banner = require('./routes/banner.js')
@@ -25,7 +25,7 @@ const dashboard = require('./routes/dashboardRoute.js')
 const coupen = require('./routes/CoupenRoute.js')
 const uploadRoute =require("./routes/uploadRoute.js");
 const restaurant = require('./routes/restaurant.js')
-const table = require("./model/Table.js");
+// const table = require("./model/Table.js");
 // require('./cron/reportCron');  
 dotenv.config();
 
@@ -65,9 +65,9 @@ app.use(subcategory)
 app.use(reservation)
 app.use(inventory)
 app.use(menu);
-app.use(qr)
-app.use(table)
-app.use(floor)
+// app.use(qr)
+// app.use(table)
+// app.use(floor)
 app.use(due)
 app.use(devlieryTiming)
 app.use(transactionRoutes);
