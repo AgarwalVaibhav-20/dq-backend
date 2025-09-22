@@ -25,6 +25,7 @@ const dashboard = require('./routes/dashboardRoute.js')
 const coupen = require('./routes/CoupenRoute.js')
 const uploadRoute =require("./routes/uploadRoute.js");
 const restaurant = require('./routes/restaurant.js')
+const loginActivity = require('./routes/loginActivity.js')
 dotenv.config();
 
 const app = express();
@@ -75,6 +76,7 @@ app.use(report)
 app.use(restaurant)
 app.use(dashboard)
 app.use("/api/coupon", coupen)
+app.use("/api/login-activity", loginActivity)
 app.use(uploadRoute);
 app.listen(PORT, () => {
   console.log(`🚀 Server started at http://localhost:${PORT}`);

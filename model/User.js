@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
     // 🔹 Role & status
     role: {
       type: String,
-      enum: ["admin", "waiter"],
+      enum: ["admin", "manager", "waiter", "cashier"],
       default: "admin",
     },
     isVerified: { type: Boolean, default: false },

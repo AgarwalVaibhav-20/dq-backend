@@ -1,6 +1,7 @@
 // controllers/AuthController.js
 const User = require("../model/User");
 const UserProfile = require("../model/UserProfile");
+const LoginActivity = require("../model/LoginActivity");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
