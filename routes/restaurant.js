@@ -29,11 +29,11 @@ router.get('/cuisine/:cuisine', authMiddleware, getRestaurantsByCuisine);
 router.get('/all/restaurants', authMiddleware, getAllRestaurants);
 router.get('/:id', authMiddleware, getRestaurantById);
 router.post('/create/restaurants/', authMiddleware, upload.single('restaurantImage'), createRestaurant);
-router.put('/:id', authMiddleware, upload.single('restaurantImage'), updateRestaurant);
-router.delete('/:id', authMiddleware, deleteRestaurant);
+router.put('/restaurants/update/:id', authMiddleware, upload.single('restaurantImage'), updateRestaurant);
+router.delete('/restaurants/delete/:id', authMiddleware, deleteRestaurant);
 
 // Status updates
-router.patch('/:id/status', authMiddleware, updateRestaurantStatus);
-router.patch('/:id/toggle-status', authMiddleware, toggleRestaurantStatus);
+router.patch('/restaurants/:id/status', authMiddleware, updateRestaurantStatus);
+router.patch('/restaurants/:id/toggle-status', authMiddleware, toggleRestaurantStatus);
 
 module.exports = router;

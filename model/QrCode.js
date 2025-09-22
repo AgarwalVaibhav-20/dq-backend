@@ -1,53 +1,41 @@
-const mongoose = require('mongoose');
 
-const qrCodeSchema = new mongoose.Schema({
-  tableNumber: {
-    type: String,
-    required: true,
-  },
-  tableId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Table',
-    required: false,
-  },
-  qrImage: {
-    type: String, // Base64 or URL to QR image
-    required: true,
-  },
-  qrData: {
-    type: String, // The actual QR code data/URL
-    required: true,
-  },
-  restaurantId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Restaurant',
-    required: true,
-  },
-  isActive: {
-    type: Boolean,
-    default: true,
-  },
-  scanCount: {
-    type: Number,
-    default: 0,
-  },
-  lastScanned: {
-    type: Date,
-    default: null,
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-}, {
-  timestamps: true,
-});
+const mongoose = require("mongoose");
 
-// Compound index for unique QR codes per restaurant
-qrCodeSchema.index({ tableNumber: 1, restaurantId: 1 }, { unique: true });
+const qrCodeSchema = new mongoose.Schema(
+  {
+    restaurantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Restaurant",
+      // required: true,
+    },
+    floorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Floor",
+      required: true,
+    },
+    tableNumber: {
+      type: String,
+      trim: true,
+      required: true,
+    },
+    qrImage: {
+      type: String, // Cloudinary URL or base64
+      trim: true,
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('QRCode', qrCodeSchema);
+// Prevent duplicate tables on the same floor in the same restaurant
+qrCodeSchema.index(
+  { restaurantId: 1, floorId: 1, tableNumber: 1 },
+  { unique: true }
+);
+
+const QrCode = mongoose.model("QrCode", qrCodeSchema);
+module.exports = QrCode;
+
 
 // const mongoose = require("mongoose");
 

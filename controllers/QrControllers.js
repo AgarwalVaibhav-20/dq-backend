@@ -1,138 +1,165 @@
-const QRCode = require('../model/QrCode');
-const Table = require('../model/Table');
-const { generateResponse } = require('../utils/responseHelper');
+const QrCode = require("../model/QrCode");
+const Floor = require("../model/Floor");
 const { generateQRCode } = require('../utils/qrCodeGenerator');
-
-// Get all QR codes for a restaurant
-const getQRCodes = async (req, res) => {
+// Create QR for a table
+exports.addTable = async (req, res) => {
   try {
-    const { restaurantId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { restaurantId, floorId, tableNumber } = req.body;
 
-    const qrCodes = await QRCode.find({ restaurantId, isActive: true })
-      .populate('tableId', 'tableNumber capacity status')
-      .sort({ tableNumber: 1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    console.log('=== Backend Debug ===');
+    console.log('Received data:', { restaurantId, floorId, tableNumber });
 
-    const total = await QRCode.countDocuments({ restaurantId, isActive: true });
+    // ... validation code ...
 
-    return res.status(200).json(generateResponse(true, 'QR codes fetched successfully', {
-      qrCodes,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total
-    }));
-  } catch (error) {
-    console.error('Error fetching QR codes:', error);
-    return res.status(500).json(generateResponse(false, 'Failed to fetch QR codes', null, error.message));
-  }
-};
-
-// Create QR code
-const createQRCode = async (req, res) => {
-  try {
-    const { tableNumber, tableId } = req.body;
-    const { restaurantId } = req.params;
-    const userId = req.user.id;
-
-    // Check if QR code already exists for this table
-    const existingQR = await QRCode.findOne({ 
-      tableNumber, 
-      restaurantId, 
-      isActive: true 
-    });
-
-    if (existingQR) {
-      return res.status(400).json(generateResponse(false, 'QR code already exists for this table'));
-    }
-
-    // Generate QR code data and image
-    const qrData = `${process.env.FRONTEND_URL}/menu/${restaurantId}?table=${tableNumber}`;
+    const qrData = `${process.env.FRONTEND_URL}/table/${restaurantId}/${floorId}/${tableNumber}`;
     const qrImage = await generateQRCode(qrData);
 
-    // Create QR code
-    const qrCode = new QRCode({
-      tableNumber,
-      tableId,
-      qrImage,
-      qrData,
+    const qrCode = new QrCode({
       restaurantId,
-      createdBy: userId,
+      floorId,
+      tableNumber,
+      qrImage
     });
 
-    await qrCode.save();
+    const savedQrCode = await qrCode.save();
 
-    // Update table with QR code reference if tableId provided
-    if (tableId) {
-      await Table.findByIdAndUpdate(tableId, { qrCodeId: qrCode._id });
+    console.log('Saved QR Code:', savedQrCode);
+    console.log('Response data:', { success: true, data: savedQrCode });
+
+    res.status(201).json({ success: true, data: savedQrCode });
+  } catch (error) {
+    console.error("addTable error:", error);
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Table already exists on this floor"
+      });
     }
 
-    const populatedQR = await QRCode.findById(qrCode._id)
-      .populate('tableId', 'tableNumber capacity status');
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+// exports.addTable = async (req, res) => {
+//   try {
+//     const { restaurantId, floorId, tableNumber } = req.body;
 
-    return res.status(201).json(generateResponse(true, 'QR code created successfully', populatedQR));
+//     // Validate required fields
+//     if (!restaurantId || !floorId || !tableNumber) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         message: "Restaurant ID, Floor ID, and Table Number are required" 
+//       });
+//     }
+
+//     const floor = await Floor.findById(floorId);
+//     if (!floor) {
+//       return res.status(404).json({ success: false, message: "Floor not found" });
+//     }
+
+//     // Generate QR code data (customize this URL as needed)
+//     const qrData = `${process.env.FRONTEND_URL}/table/${restaurantId}/${floorId}/${tableNumber}`;
+
+//     // Use your utility function to generate QR image
+//     const qrImage = await generateQRCode(qrData);
+
+//     const qrCode = new QrCode({ 
+//       restaurantId, 
+//       floorId, 
+//       tableNumber, 
+//       qrImage 
+//     });
+
+//     await qrCode.save();
+
+//     res.status(201).json({ success: true, data: qrCode });
+//   } catch (error) {
+//     console.error("addTable error:", error);
+
+//     if (error.code === 11000) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         message: "Table already exists on this floor" 
+//       });
+//     }
+
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// Get all QR codes (with optional filters)
+exports.getQrs = async (req, res) => {
+  try {
+    const { restaurantId, floorId } = req.query;
+
+    const filter = {};
+    if (restaurantId) filter.restaurantId = restaurantId;
+    if (floorId) filter.floorId = floorId;
+
+    const qrs = await QrCode.find(filter).populate("floorId");
+    res.status(200).json({ success: true, data: qrs });
   } catch (error) {
-    console.error('Error creating QR code:', error);
-    return res.status(500).json(generateResponse(false, 'Failed to create QR code', null, error.message));
+    console.log("getQrs error:", error);
+    console.error("getQrs error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Update QR code scan count
-const updateScanCount = async (req, res) => {
+// Get QR by ID
+exports.getQrById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const qr = await QrCode.findById(req.params.id).populate("floorId");
+    if (!qr) {
+      return res.status(404).json({ success: false, message: "QR not found" });
+    }
+    res.status(200).json({ success: true, data: qr });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Delete QR
+exports.deleteQr = async (req, res) => {
+  console.log("DELETE QR ID:", req.params.id); // debug
+  try {
+    const qr = await QrCode.findByIdAndDelete(req.params.id);
+    if (!qr) {
+      return res.status(404).json({ success: false, message: "QR not found" });
+    }
+    res.status(200).json({ success: true, message: "QR deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// Get tables by floor
+exports.getTablesByFloor = async (req, res) => {
+  try {
+    const { floorId } = req.params;
+    const tables = await QrCode.find({ floorId }).populate("floorId");
+    res.status(200).json({ success: true, data: tables });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Count tables per floor (per restaurant)
+exports.countTablesPerFloor = async (req, res) => {
+  try {
     const { restaurantId } = req.params;
 
-    const qrCode = await QRCode.findOne({ _id: id, restaurantId, isActive: true });
-    if (!qrCode) {
-      return res.status(404).json(generateResponse(false, 'QR code not found'));
-    }
+    const stats = await QrCode.aggregate([
+      { $match: { restaurantId: require("mongoose").Types.ObjectId(restaurantId) } },
+      { $group: { _id: "$floorId", totalTables: { $sum: 1 } } },
+    ]);
 
-    qrCode.scanCount += 1;
-    qrCode.lastScanned = new Date();
-    await qrCode.save();
-
-    return res.status(200).json(generateResponse(true, 'Scan count updated', qrCode));
+    res.status(200).json({ success: true, data: stats });
   } catch (error) {
-    console.error('Error updating scan count:', error);
-    return res.status(500).json(generateResponse(false, 'Failed to update scan count', null, error.message));
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Delete QR code
-const deleteQRCode = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { restaurantId } = req.params;
-
-    const qrCode = await QRCode.findOne({ _id: id, restaurantId, isActive: true });
-    if (!qrCode) {
-      return res.status(404).json(generateResponse(false, 'QR code not found'));
-    }
-
-    // Soft delete
-    qrCode.isActive = false;
-    await qrCode.save();
-
-    // Remove QR code reference from table
-    if (qrCode.tableId) {
-      await Table.findByIdAndUpdate(qrCode.tableId, { $unset: { qrCodeId: 1 } });
-    }
-
-    return res.status(200).json(generateResponse(true, 'QR code deleted successfully'));
-  } catch (error) {
-    console.error('Error deleting QR code:', error);
-    return res.status(500).json(generateResponse(false, 'Failed to delete QR code', null, error.message));
-  }
-};
-
-module.exports = {
-  getQRCodes,
-  createQRCode,
-  updateScanCount,
-  deleteQRCode,
-};
 
 // const QRCode = require("qrcode");
 // const Qr = require("../model/QrCode");

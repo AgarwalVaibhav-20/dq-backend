@@ -28,7 +28,7 @@ const userProfileSchema = new mongoose.Schema(
     },
     address: {
       type: String,
-      default: "Not set",
+      default: "Not provided",
       required: true,
     },
     phoneNumber: {

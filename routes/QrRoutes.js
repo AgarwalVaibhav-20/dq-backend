@@ -1,38 +1,17 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const {authMiddleware} = require('../middleware/authMiddleware');
-const {
-  getQRCodes,
-  createQRCode,
-  updateScanCount,
-  deleteQRCode,
-} = require('../controllers/QrControllers');
+const QrController = require("../controllers/QrControllers");
 
-// All routes require authentication
-router.use(authMiddleware);
+router.post("/create/qrcode", QrController.addTable);
 
-// Get all QR codes for a restaurant
-router.get('/restaurants/:restaurantId/qrcodes', authMiddleware, getQRCodes);
+router.get("/qrcodes/all", QrController.getQrs);
 
-// Create QR code
-router.post('/restaurants/:restaurantId/qrcodes', authMiddleware, createQRCode);
+router.get("/:id", QrController.getQrById);
 
-// Update scan count (public route for customers)
-router.put('/restaurants/:restaurantId/qrcodes/:id/scan', updateScanCount);
+router.delete("/delete/qrcodes/:id", QrController.deleteQr);
 
-// Delete QR code
-router.delete('/restaurants/:restaurantId/qrcodes/:id', authMiddleware, deleteQRCode);
+router.get("/floor/:floorId", QrController.getTablesByFloor);
+
+router.get("/stats/:restaurantId", QrController.countTablesPerFloor);
 
 module.exports = router;
-
-// const express = require("express");
-// const router = express.Router();
-// const QrController = require("../controllers/QrControllers");
-
-// // Routes
-// router.post("/qr/generate", QrController.generateQr);
-// router.get("/qr/allQr", QrController.getQrs);
-// router.get("/qr/:id", QrController.getQrById);
-// router.delete("/qr/:id", QrController.deleteQr);
-
-// module.exports = router;
