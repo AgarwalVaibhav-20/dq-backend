@@ -4,7 +4,7 @@ const inventoryController = require("../controllers/InventoryController");
 const {authMiddleware} = require("../middleware/authMiddleware");
 
 
-router.post("/create/inventories", authMiddleware, inventoryController.addInventory);
+router.post("/create/adding/inventories", authMiddleware, inventoryController.addInventory);
 router.get("/stock/inventories", authMiddleware, inventoryController.getInventory);
 router.get("/:id", authMiddleware, inventoryController.getInventoryById);
 router.put("/update/:id", authMiddleware, inventoryController.updateInventory);

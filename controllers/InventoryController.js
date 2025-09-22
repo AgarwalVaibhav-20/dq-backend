@@ -3,27 +3,27 @@ const Supplier = require('../model/Supplier');
 // ➤ Add new inventory item
 exports.addInventory = async (req, res) => {
   try {
-    const { itemName, quantity, unit, restaurantId } = req.body;
+    const { itemName, quantity, unit, restaurantId, supplierId } = req.body;
 
     // Validate required fields
-    if (!itemName || !quantity || !unit || !restaurantId) {
+    if (!itemName || !quantity || !unit || !restaurantId || !supplierId) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Find supplier by restaurantId
-    const supplier = await Supplier.findOne({ restaurantId });
+    // Find supplier by supplierId
+    const supplier = await Supplier.findById(supplierId);
     if (!supplier) {
-      return res.status(404).json({ message: "Supplier not found for this restaurant" });
+      return res.status(404).json({ message: "Supplier not found" });
     }
 
     // Create new inventory item
     const newInventory = new Inventory({
       itemName,
-      quantity,
+      quantity: Number(quantity), // Ensure number
       unit,
       restaurantId,
-      supplierId: supplier._id,              // ✅ required for relationship
-      supplierName:supplier.supplierName,   // ✅ stored for quick reference
+      supplierId: supplier._id,
+      supplierName: supplier.supplierName,
     });
 
     await newInventory.save();
