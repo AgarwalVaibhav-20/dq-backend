@@ -32,7 +32,26 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+  'https://dq-rms.vercel.app',
+  'http://localhost:3000' // Add your local frontend URL for development
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true, // If you need to send cookies or authorization headers
+};
+
+app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -78,6 +97,10 @@ app.use(dashboard)
 app.use("/api/coupon", coupen)
 app.use("/api/login-activity", loginActivity)
 app.use(uploadRoute);
+// 1. COMMENT this (for prod)
 app.listen(PORT, () => {
   console.log(`🚀 Server started at http://localhost:${PORT}`);
 });
+
+// UNcomment this (for prod)
+// module.exports = app;

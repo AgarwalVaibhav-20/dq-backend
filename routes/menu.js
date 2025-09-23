@@ -9,7 +9,7 @@ const {
   // deleteMenuItem,
   hardDeleteMenuItem,
   updateMenuStatus
-} = require("../controllers/menuController");
+} = require("../controllers/NewMenuController");
 
 router.get("/menu/allmenues", getMenuItems);
 
