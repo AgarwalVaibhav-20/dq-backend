@@ -91,12 +91,15 @@ exports.addTable = async (req, res) => {
 exports.getQrs = async (req, res) => {
   try {
     const { restaurantId, floorId } = req.query;
-
-    const filter = {};
+    // console.log("yes requested")
+    let filter = {};
     if (restaurantId) filter.restaurantId = restaurantId;
     if (floorId) filter.floorId = floorId;
+    // console.log("restaurant ID ye hai :",filter)
 
     const qrs = await QrCode.find(filter).populate("floorId");
+    // console.log("the qrs according to floor",qrs)
+
     res.status(200).json({ success: true, data: qrs });
   } catch (error) {
     console.log("getQrs error:", error);
