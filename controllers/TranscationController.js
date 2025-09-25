@@ -179,7 +179,9 @@ exports.createTransaction = async (req, res) => {
       total,
       type,
       customerId,
-      transactionId
+      transactionId,
+      roundOff,
+      systemCharge
     } = req.body;
 
     // Enhanced validation
@@ -259,9 +261,12 @@ exports.createTransaction = async (req, res) => {
       type,
       customerId,
       transactionId,
+      roundOff,
+      systemCharge,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    console.log()
     console.log("Incoming customerId:", customerId);
 
 

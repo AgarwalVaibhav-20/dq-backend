@@ -143,6 +143,10 @@ const transactionSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    systemCharge: {
+      type: Number,
+      default: 0,
+    },
     sub_total: {
       type: Number,
       // Make this required only if it's a sale transaction
@@ -193,22 +197,22 @@ transactionSchema.pre('save', function (next) {
   }
 
   // Only perform calculations if items exist (for sale transactions)
-  if (this.items && this.items.length > 0) {
+  if (this.items && this.items.length > 0 ) {
     // Recalculate item subtotals
     this.items.forEach((item) => {
       item.subtotal = item.price * item.quantity;
     });
 
     // Calculate sub_total
-    this.sub_total = this.items.reduce((sum, item) => sum + item.subtotal, 0);
+    // this.sub_total = this.items.reduce((sum, item) => sum + item.subtotal, 0);
 
-    // Tax & Discount amounts
-    this.taxAmount = (this.sub_total * this.tax) / 100;
-    this.discountAmount = (this.sub_total * this.discount) / 100;
+    // // Tax & Discount amounts
+    // this.taxAmount = (this.sub_total * this.tax) / 100;
+    // this.discountAmount = (this.sub_total * this.discount) / 100;
 
-    // Final total for sales
-    this.total =
-      this.sub_total + this.taxAmount - this.discountAmount + this.roundOff;
+    // // Final total for sales
+    // this.total =
+    //   this.sub_total + this.taxAmount +this.systemCharge - this.discountAmount - this.roundOff;
   }
 
   next();
