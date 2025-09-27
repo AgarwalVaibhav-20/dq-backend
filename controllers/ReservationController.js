@@ -165,13 +165,41 @@ exports.getReservationsByUser = async (req, res) => {
 exports.updateReservation = async (req, res) => {
   try {
     const { id } = req.params;
-    const reservation = await Reservation.findByIdAndUpdate(id, req.body, { new: true });
+    const updateData = req.body;
+    
+    // Remove undefined values and convert dates properly
+    const cleanUpdateData = {};
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] !== undefined && updateData[key] !== null) {
+        cleanUpdateData[key] = updateData[key];
+      }
+    });
 
-    if (!reservation) return res.status(404).json({ message: "Reservation not found" });
+    const reservation = await Reservation.findByIdAndUpdate(
+      id, 
+      cleanUpdateData, 
+      { new: true, runValidators: true }
+    );
 
-    res.json({ message: "Reservation updated successfully", reservation });
+    if (!reservation) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Reservation not found" 
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: "Reservation updated successfully", 
+      reservation 
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error updating reservation", error: err.message });
+    console.error("Update reservation error:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "Error updating reservation", 
+      error: err.message 
+    });
   }
 };
 
@@ -181,10 +209,23 @@ exports.cancelReservation = async (req, res) => {
     const { id } = req.params;
     const reservation = await Reservation.findByIdAndDelete(id);
 
-    if (!reservation) return res.status(404).json({ message: "Reservation not found" });
+    if (!reservation) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Reservation not found" 
+      });
+    }
 
-    res.json({ message: "Reservation cancelled successfully" });
+    res.json({ 
+      success: true,
+      message: "Reservation cancelled successfully" 
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error cancelling reservation", error: err.message });
+    console.error("Delete reservation error:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "Error cancelling reservation", 
+      error: err.message 
+    });
   }
 };

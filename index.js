@@ -81,7 +81,7 @@ app.use(category)
 app.use(customer)
 app.use(supplier)
 app.use(subcategory)
-app.use(reservation)
+app.use("/reservations", reservation)
 app.use(inventory)
 app.use(menu);
 app.use(qr)

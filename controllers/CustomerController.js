@@ -41,6 +41,19 @@ exports.getAllCustomers = async (req, res) => {
   }
 };
 
+// 📌 Get ALL Customers (for reservation dropdown)
+exports.getAllCustomersForReservation = async (req, res) => {
+  try {
+    console.log("🔍 Fetching ALL customers for reservation dropdown...");
+    const customers = await Customer.find({});
+    console.log("📊 Total customers found:", customers.length);
+    res.json(customers);
+  } catch (err) {
+    console.error("Error fetching all customers:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 // 📌 Get Single Customer by ID
 exports.getCustomerById = async (req, res) => {
