@@ -39,9 +39,6 @@ exports.getAllDueTransactions = async (req, res) => {
 exports.deleteDueTransaction = async (req, res) => {
   try {
     const { id } = req.params;
-
-    console.log('Delete request for ID:', id); // Debug log
-
     if (!id) {
       return res.status(400).json({
         message: "Due transaction ID is required",
@@ -79,9 +76,6 @@ exports.updateDueTransaction = async (req, res) => {
     const { id } = req.params;
     // FIXED: Accept both customer_id and transaction_id for compatibility
     const { customer_id, transaction_id, total, status, restaurantId } = req.body;
-
-    console.log('Update request for ID:', id, 'Body:', req.body); // Debug log
-
     // Validation
     if (!id) {
       return res.status(400).json({
@@ -159,9 +153,6 @@ exports.updateDueTransaction = async (req, res) => {
 exports.deleteDueTransaction = async (req, res) => {
   try {
     const { id } = req.params;
-
-    console.log('Delete request for ID:', id); // Debug log
-
     if (!id) {
       return res.status(400).json({
         message: "Due transaction ID is required",

@@ -7,15 +7,11 @@ const mongoose = require("mongoose");
 exports.getProfile = async (req, res) => {
   try {
     const user = await UserProfile.findOne({ userId: req.params.userId });
-    console.log(user)
     if (!user) {
-      console.log("User not found", error)
       return res.status(404).json({ success: false, message: "User not found" });
     }
-    console.log("User found:", user);
     res.json({ success: true, data: user });
   } catch (err) {
-    console.log(err);
     console.error("Error fetching profile:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -54,7 +50,6 @@ exports.updateProfile = async (req, res) => {
 
     res.json({ success: true, data: updatedUser });
   } catch (err) {
-    console.log(err , "error is here")
     console.error("Error updating profile:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -86,24 +81,15 @@ exports.deleteProfile = async (req, res) => {
 exports.checkRestaurantPermission = async (req, res, next) => {
   try {
     const { userId } = req.params;
-
-    console.log("Extracted userId from params:", userId);
-    console.log("Full params object:", req.params);
-
     if (!userId) {
       return res.status(400).json({ message: "userId missing" });
     }
-
     const user = await UserProfile.findOne({
       userId: userId  
     });
-
-    console.log("Found user:", user ? "Yes" : "No");
-
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
     req.userProfile = user;
     next();
   } catch (error) {

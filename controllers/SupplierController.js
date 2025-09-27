@@ -46,7 +46,6 @@ exports.createSupplier = async (req, res) => {
       data: supplier,
     });
   } catch (err) {
-    console.log(err)
     console.error("❌ Error creating supplier:", err);
     res.status(500).json({ message: err.message || "Server error" });
   }

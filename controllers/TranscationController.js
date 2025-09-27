@@ -1,12 +1,7 @@
 const Transaction = require("../model/Transaction");
 const User = require("../model/User");
 const mongoose = require('mongoose');
-// const Restaurant = require("../model/Restaurant");
-// const Customer = require("../model/Customer");
 
-// ---------------- CREATE TRANSACTION ----------------
-
-// Create Cash Out Transaction
 // Create Cash In or Cash Out Transaction
 exports.createCashTransaction = async (req, res) => {
   try {
@@ -55,7 +50,6 @@ exports.createCashTransaction = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal server error", error: error.message });
   }
 };
-// TranscationController.js
 
 
 exports.getDailyCashBalance = async (req, res) => {
@@ -93,8 +87,6 @@ exports.getDailyCashBalance = async (req, res) => {
         }
       }
     ]);
-    console.log("Aggregation result:", result);
-
     let cashIn = 0;
     let cashOut = 0;
     let totalCash = 0;
@@ -118,55 +110,7 @@ exports.getDailyCashBalance = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-// exports.getDailyCashBalance = async (req, res) => {
-//   try {
-//     const { restaurantId, date } = req.params;
-
-//     if (!restaurantId || !date) {
-//       return res.status(400).json({ message: "Restaurant ID and date are required" });
-//     }
-
-//     const startOfDay = new Date(date);
-//     startOfDay.setHours(0, 0, 0, 0);
-
-//     const endOfDay = new Date(date);
-//     endOfDay.setHours(23, 59, 59, 999);
-
-//     const result = await Transaction.aggregate([
-//       {
-//         $match: {
-//           restaurantId: restaurantId,
-//           createdAt: { $gte: startOfDay, $lte: endOfDay },
-//           type: { $in: ["CashIn", "CashOut"] }
-//         }
-//       },
-//       {
-//         $group: {
-//           _id: "$type",
-//           total: { $sum: "$total" }
-//         }
-//       }
-//     ]);
-
-//     let cashIn = 0;
-//     let cashOut = 0;
-
-//     result.forEach(r => {
-//       if (r._id === "CashIn") cashIn = r.total;
-//       if (r._id === "CashOut") cashOut = r.total;
-//     });
-
-//     // Calculate net balance
-//     const balance = cashIn - cashOut;
-
-//     res.json({ balance, cashIn, cashOut });
-//   } catch (error) {
-//     console.error("Error fetching daily cash balance:", error.message);
-//     res.status(500).json({ message: "Internal server error" });
-//   }
-// };
 exports.createTransaction = async (req, res) => {
-  console.log("Creating transaction...")
   try {
     const {
       restaurantId,
@@ -218,9 +162,7 @@ exports.createTransaction = async (req, res) => {
 
     // If userId is provided but no username, fetch the user
     if (userId && !username) {
-      console.log("Fetching user for username...")
       const user = await User.findById(userId);
-      console.log("Found user:", user)
       if (user) {
         username = user.username;
       } else {
@@ -266,12 +208,14 @@ exports.createTransaction = async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    console.log()
-    console.log("Incoming customerId:", customerId);
+// <<<<<<< Updated upstream
+    // console.log()
+    // console.log("Incoming customerId:", customerId);
 
 
+// =======
+// >>>>>>> Stashed changes
     const savedTransaction = await newTransaction.save();
-
     res.status(201).json({
       success: true,
       message: "Transaction created successfully",
@@ -290,14 +234,9 @@ exports.createTransaction = async (req, res) => {
 // ---------------- GET ALL TRANSACTIONS ----------------
 exports.getAllTransactions = async (req, res) => {
   try {
-    console.log("Fetching all transactions...");
-
     const transactions = await Transaction.find({
-      status: { $ne: 'cancelled' } // Exclude cancelled transactions
-    }).sort({ createdAt: -1 }); // Sort by newest first
-
-    console.log(`Found ${transactions.length} transactions`);
-
+      status: { $ne: 'cancelled' }
+    }).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       data: transactions,
@@ -352,8 +291,6 @@ exports.getTransactionById = async (req, res) => {
   const { transactionId } = req.params;
 
   try {
-    console.log(`Fetching transaction with ID: ${transactionId}`);
-
     // Try to find by transactionId first, then by _id if not found
     let transaction = await Transaction.findOne({ transactionId })
       .populate('customerId', 'name email phoneNumber address')
@@ -373,8 +310,6 @@ exports.getTransactionById = async (req, res) => {
         message: 'Transaction not found'
       });
     }
-
-    console.log('📤 Sending transaction data:', transaction);
     res.status(200).json({
       success: true,
       data: transaction
@@ -425,9 +360,6 @@ exports.deleteTransaction = async (req, res) => {
   try {
     const { note } = req.body;
     const transactionId = req.params.id;
-
-    console.log(`Deleting transaction ${transactionId} with note: ${note}`);
-
     // Find the transaction first to get existing notes
     const existingTransaction = await Transaction.findById(transactionId);
 
@@ -521,17 +453,12 @@ exports.getTransactionsByPaymentType = async (req, res) => {
 // ---------------- GET POS TRANSACTIONS ----------------
 exports.getPOSTransactions = async (req, res) => {
   try {
-    console.log("Fetching POS transactions...");
-
     const transactions = await Transaction.find({
       status: { $ne: 'cancelled' }
     })
       .populate("userId", "username email fullName")
       .populate("restaurantId", "name")
       .sort({ createdAt: -1 });
-
-    console.log(`Found ${transactions.length} POS transactions`);
-
     res.status(200).json({
       success: true,
       data: transactions,

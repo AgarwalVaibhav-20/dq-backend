@@ -27,10 +27,7 @@ const formatDatatoSend = (user) => {
 module.exports = {
   // SIGNUP
   async signup(req, res) {
-    console.log("📝 Signup request received:", req.body);
-
     const { username, email, password } = req.body;
-
     // 1️⃣ Input validations
     if (!username || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
@@ -76,8 +73,6 @@ module.exports = {
       });
 
       await user.save();
-      console.log("✅ User created successfully");
-
       await UserProfile.create({
         userId: user._id,
         email: user.email,
@@ -85,13 +80,6 @@ module.exports = {
         lastName: "Not set",
         restaurantId: user._id,
       });
-      console.log("✅ UserProfile created successfully");
-
-      // 6️⃣ Send OTP (email service or console in dev)
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`✅ OTP for ${email}: ${otp}`);
-      }
-
       // 7️⃣ Return response with JWT & user data
       const userData = formatDatatoSend(user);
 
@@ -141,7 +129,7 @@ module.exports = {
 
       // 4. Find profile (to get restaurantId & categoryId)
       const profile = await UserProfile.findOne({ userId: user._id });
-      const profileForOtp = await User.findByIdAndUpdate(user._id, {verifyOTP: otp, otpExpiry}, {new:true});
+      const profileForOtp = await User.findByIdAndUpdate(user._id, { verifyOTP: otp, otpExpiry }, { new: true });
 
       // 5. Create JWT
       const token = jwt.sign(
@@ -191,17 +179,14 @@ module.exports = {
     try {
       const user = await User.findOne({ email });
       if (!user) {
-        console.log("❌ User not found for OTP verification");
         return res.status(400).json({ message: "User not found" });
       }
 
       if (user.verifyOTP !== otp) {
-        console.log("❌ Invalid OTP");
         return res.status(400).json({ message: "Invalid OTP" });
       }
 
       if (user.otpExpiry < Date.now()) {
-        console.log("❌ OTP expired");
         return res.status(400).json({ message: "OTP expired" });
       }
 
@@ -209,9 +194,6 @@ module.exports = {
       // user.verifyOTP = undefined;
       // user.otpExpiry = undefined;
       await user.save();
-
-      console.log("✅ Account verified successfully");
-
       // ✅ FIXED: Return user data directly
       const userData = formatDatatoSend(user);
       return res.status(200).json({
@@ -247,10 +229,6 @@ module.exports = {
         "Forgot password - OTP",
         `Welcome! Your One-Time Password is : ${otp} (Valid for only 10 minutes)`
       );
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`📩 Reset OTP for ${email}: ${otp}`);
-      }
-
       res.json({ message: "Password reset OTP sent to email" });
     } catch (err) {
       console.error("❌ forgotOtp error:", err.stack);
@@ -373,9 +351,6 @@ module.exports = {
     try {
       const { role, permissions } = req.body;
       const { id } = req.params; // Get user ID from URL parameter
-
-      console.log("🔄 Updating user:", id, "with role:", role, "and permissions:", permissions);
-
       const user = await User.findById(id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -385,9 +360,6 @@ module.exports = {
       if (permissions) user.permissions = permissions;
 
       await user.save();
-
-      console.log("✅ User updated successfully:", user.username, "new role:", user.role);
-
       res.json({
         message: "User updated successfully",
         userId: user._id,

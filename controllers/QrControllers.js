@@ -5,12 +5,7 @@ const { generateQRCode } = require('../utils/qrCodeGenerator');
 exports.addTable = async (req, res) => {
   try {
     const { restaurantId, floorId, tableNumber } = req.body;
-
-    console.log('=== Backend Debug ===');
-    console.log('Received data:', { restaurantId, floorId, tableNumber });
-
     // ... validation code ...
-
     const qrData = `${process.env.FRONTEND_URL}/table/${restaurantId}/${floorId}/${tableNumber}`;
     const qrImage = await generateQRCode(qrData);
 
@@ -22,10 +17,6 @@ exports.addTable = async (req, res) => {
     });
 
     const savedQrCode = await qrCode.save();
-
-    console.log('Saved QR Code:', savedQrCode);
-    console.log('Response data:', { success: true, data: savedQrCode });
-
     res.status(201).json({ success: true, data: savedQrCode });
   } catch (error) {
     console.error("addTable error:", error);
@@ -36,73 +27,25 @@ exports.addTable = async (req, res) => {
         message: "Table already exists on this floor"
       });
     }
-
     res.status(500).json({ success: false, message: error.message });
   }
 };
-// exports.addTable = async (req, res) => {
-//   try {
-//     const { restaurantId, floorId, tableNumber } = req.body;
-
-//     // Validate required fields
-//     if (!restaurantId || !floorId || !tableNumber) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: "Restaurant ID, Floor ID, and Table Number are required" 
-//       });
-//     }
-
-//     const floor = await Floor.findById(floorId);
-//     if (!floor) {
-//       return res.status(404).json({ success: false, message: "Floor not found" });
-//     }
-
-//     // Generate QR code data (customize this URL as needed)
-//     const qrData = `${process.env.FRONTEND_URL}/table/${restaurantId}/${floorId}/${tableNumber}`;
-
-//     // Use your utility function to generate QR image
-//     const qrImage = await generateQRCode(qrData);
-
-//     const qrCode = new QrCode({ 
-//       restaurantId, 
-//       floorId, 
-//       tableNumber, 
-//       qrImage 
-//     });
-
-//     await qrCode.save();
-
-//     res.status(201).json({ success: true, data: qrCode });
-//   } catch (error) {
-//     console.error("addTable error:", error);
-
-//     if (error.code === 11000) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: "Table already exists on this floor" 
-//       });
-//     }
-
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
 // Get all QR codes (with optional filters)
 exports.getQrs = async (req, res) => {
   try {
     const { restaurantId, floorId } = req.query;
-    // console.log("yes requested")
+
     let filter = {};
     if (restaurantId) filter.restaurantId = restaurantId;
     if (floorId) filter.floorId = floorId;
-    // console.log("restaurant ID ye hai :",filter)
+
 
     const qrs = await QrCode.find(filter).populate("floorId");
-    // console.log("the qrs according to floor",qrs)
+
 
     res.status(200).json({ success: true, data: qrs });
   } catch (error) {
-    console.log("getQrs error:", error);
+
     console.error("getQrs error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -123,7 +66,7 @@ exports.getQrById = async (req, res) => {
 
 // Delete QR
 exports.deleteQr = async (req, res) => {
-  console.log("DELETE QR ID:", req.params.id); // debug
+
   try {
     const qr = await QrCode.findByIdAndDelete(req.params.id);
     if (!qr) {

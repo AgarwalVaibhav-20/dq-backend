@@ -1,81 +1,135 @@
 const mongoose = require("mongoose");
-
 const menuSchema = new mongoose.Schema(
   {
-    menuId: {
-      type: String,
-      required: true,
-    },
-    itemName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    itemImage: {
-      type: String,
-      default: null,
-    },
-    price: {
-      type: Number,
-      min: 0,
-      default: 0,
-    },
+    menuId: { type: String, required: true },
+    itemName: { type: String, required: true, trim: true },
+    itemImage: { type: String, default: null },
+    price: { type: Number, min: 0, default: 0 },
+
     sizes: [
       {
-        name: { type: String, trim: true }, // Primary field name
-        label: { type: String, trim: true }, // Backward compatibility
+        name: { type: String, trim: true },
+        label: { type: String, trim: true },
         price: { type: Number, required: true, min: 0 },
         enabled: { type: Boolean, default: true },
       },
     ],
+
     categoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true,
     },
-    restaurantId: {
+    categoryName: {   // ✅ new field
       type: String,
       required: true,
-    },
-    stock: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    status: {
-      type: Number,
-      default: 1,
-      enum: [0, 1],
-    },
-    sub_category: {
-      type: String,
       trim: true,
     },
+
+    restaurantId: { type: String, required: true },
+
+    stock: { type: Number, default: 0, min: 0 },
+    status: { type: Number, default: 1, enum: [0, 1] },
+    sub_category: { type: String, trim: true },
+
     stockItems: [
       {
         stockId: { type: String },
         quantity: { type: Number, default: 0, min: 0 },
+        unit: {
+          type: String,
+          enum: ["kg", "litre", "gm", "pcs", "mg", "ml"],
+        },
       },
     ],
-    description: {
-      type: String,
-      trim: true,
-    },
-    preparationTime: {
-      type: Number,
-      min: 0,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
+
+    description: { type: String, trim: true },
+    preparationTime: { type: Number, min: 0 },
+    isActive: { type: Boolean, default: true },
   },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-  }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
+
+// const menuSchema = new mongoose.Schema(
+//   {
+//     menuId: {
+//       type: String,
+//       required: true,
+//     },
+//     itemName: {
+//       type: String,
+//       required: true,
+//       trim: true,
+//     },
+//     itemImage: {
+//       type: String,
+//       default: null,
+//     },
+//     price: {
+//       type: Number,
+//       min: 0,
+//       default: 0,
+//     },
+//     sizes: [
+//       {
+//         name: { type: String, trim: true }, // Primary field name
+//         label: { type: String, trim: true }, // Backward compatibility
+//         price: { type: Number, required: true, min: 0 },
+//         enabled: { type: Boolean, default: true },
+//       },
+//     ],
+//     categoryId: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: "Category",
+//       required: true,
+//     },
+//     restaurantId: {
+//       type: String,
+//       required: true,
+//     },
+//     stock: {
+//       type: Number,
+//       default: 0,
+//       min: 0,
+//     },
+//     status: {
+//       type: Number,
+//       default: 1,
+//       enum: [0, 1],
+//     },
+//     sub_category: {
+//       type: String,
+//       trim: true,
+//     },
+//     stockItems: [
+//       {
+//         stockId: { type: String },
+//         quantity: { type: Number, default: 0, min: 0 },
+//         unit: {
+//           type: String,
+//           enum: ['kg', 'litre', 'gm', 'pcs', 'mg', 'ml'],
+//         }
+//       },
+//     ],
+//     description: {
+//       type: String,
+//       trim: true,
+//     },
+//     preparationTime: {
+//       type: Number,
+//       min: 0,
+//     },
+//     isActive: {
+//       type: Boolean,
+//       default: true,
+//     },
+//   },
+//   {
+//     timestamps: true,
+//     toJSON: { virtuals: true },
+//     toObject: { virtuals: true },
+//   }
+// );
 
 // Indexes for better query performance
 menuSchema.index({ restaurantId: 1, categoryId: 1 });

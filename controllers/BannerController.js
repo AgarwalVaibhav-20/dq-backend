@@ -1,4 +1,4 @@
-const Banner = require("../model/Banner"); 
+const Banner = require("../model/Banner");
 const multer = require('multer')
 const cloudinary = require("../config/cloudinary"); // adjust path
 const fs = require("fs");
@@ -34,12 +34,7 @@ exports.createBanner = (req, res) => {
     }
 
     try {
-      console.log("Create banner request received");
-      console.log("Files:", req.files);
-      console.log("Body:", req.body);
-
       const restaurantId = req.body.restaurantId || "default-restaurant";
-
       // Upload each banner (if present) to Cloudinary
       const banner_1 = req.files?.banner_1
         ? await uploadToCloudinary(req.files.banner_1[0].buffer, "banners")
@@ -67,8 +62,6 @@ exports.createBanner = (req, res) => {
       });
 
       await banner.save();
-
-      console.log("Banner saved successfully:", banner._id);
       res.status(201).json({ success: true, data: banner });
     } catch (error) {
       console.error("Create banner error:", error);
@@ -76,65 +69,15 @@ exports.createBanner = (req, res) => {
     }
   });
 };
-// Ensure uploads directory exists
-// const uploadsDir = "uploads/banners";
-// if (!fs.existsSync(uploadsDir)) {
-//   fs.mkdirSync(uploadsDir, { recursive: true });
-// }
-
-// // ⚡ Configure multer inside controller
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, uploadsDir); // folder where files are stored
-//   },
-//   filename: (req, file, cb) => {
-//     cb(null, Date.now() + "-" + file.originalname.replace(/\s+/g, "_"));
-//   },
-// });
-
-// const fileFilter = (req, file, cb) => {
-//   const allowedTypes = /jpeg|jpg|png|webp/;
-//   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-//   const mimetype = allowedTypes.test(file.mimetype);
-
-//   if (mimetype && extname) {
-//     cb(null, true);
-//   } else {
-//     cb(new Error("Only image files are allowed"), false);
-//   }
-// };
-
-// const upload = multer({
-//   storage,
-//   fileFilter,
-//   limits: { fileSize: 5 * 1024 * 1024 },
-// }).fields([
-//   { name: "banner_1", maxCount: 1 },
-//   { name: "banner_2", maxCount: 1 },
-//   { name: "banner_3", maxCount: 1 },
-// ]);
-
-// // Helper function to get full image URL
-// const getImageUrl = (imagePath) => {
-//   if (!imagePath) return null;
-//   const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-//   return `${baseUrl}/${imagePath.replace(/\\/g, '/')}`;
-// };
-
-// ✅ Get all banners (No Auth)
 exports.getBanners = async (req, res) => {
   try {
-    console.log("Get banners request received");
-
     const { restaurantId } = req.query;
 
     let banners;
     if (restaurantId) {
       banners = await Banner.find({ restaurantId });
-      console.log(`Found ${banners.length} banners for restaurant ${restaurantId}`);
     } else {
       banners = await Banner.find({});
-      console.log(`Found ${banners.length} total banners`);
     }
 
     // No need to modify URLs since Cloudinary already provides them
@@ -144,57 +87,6 @@ exports.getBanners = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
-// ✅ Create Banner (No Auth)
-// exports.createBanner = (req, res) => {
-//   upload(req, res, async (err) => {
-//     if (err) {
-//       console.error("Multer error:", err);
-//       return res.status(400).json({ success: false, message: err.message });
-//     }
-
-//     try {
-//       console.log('Create banner request received');
-//       console.log('Files:', req.files);
-//       console.log('Body:', req.body);
-
-//       // Use a default restaurantId if none provided
-//       const restaurantId = req.body.restaurantId || 'default-restaurant';
-
-//       const bannerData = {
-//         restaurantId,
-//         banner_1: req.files?.banner_1 ? req.files.banner_1[0].path : null,
-//         banner_2: req.files?.banner_2 ? req.files.banner_2[0].path : null,
-//         banner_3: req.files?.banner_3 ? req.files.banner_3[0].path : null,
-//       };
-
-//       console.log('Banner data to save:', bannerData);
-
-//       if (!bannerData.banner_1) {
-//         return res.status(400).json({ success: false, message: "banner_1 is required" });
-//       }
-
-//       const banner = new Banner(bannerData);
-//       await banner.save();
-
-//       console.log('Banner saved successfully:', banner._id);
-
-//       // Convert file paths to URLs before sending response
-//       const bannerWithUrls = {
-//         ...banner.toObject(),
-//         banner_1: getImageUrl(banner.banner_1),
-//         banner_2: getImageUrl(banner.banner_2),
-//         banner_3: getImageUrl(banner.banner_3),
-//       };
-
-//       res.status(201).json({ success: true, data: bannerWithUrls });
-//     } catch (error) {
-//       console.error("Create banner error:", error);
-//       res.status(500).json({ success: false, message: error.message });
-//     }
-//   });
-// };
 
 // ✅ Update Banner (No Auth)
 exports.updateBanner = (req, res) => {
@@ -206,10 +98,6 @@ exports.updateBanner = (req, res) => {
 
     try {
       const { id } = req.params;
-      console.log('Update banner request for ID:', id);
-      console.log('Files:', req.files);
-      console.log('Body:', req.body);
-
       // Find existing banner
       const existingBanner = await Banner.findById(id);
       if (!existingBanner) {
@@ -258,7 +146,6 @@ exports.updateBanner = (req, res) => {
         updateData.banner_3 = existingBanner.banner_3; // Keep existing
       }
 
-      console.log('Update data:', updateData);
 
       const updatedBanner = await Banner.findByIdAndUpdate(id, updateData, {
         new: true,
@@ -273,7 +160,7 @@ exports.updateBanner = (req, res) => {
         banner_3: getImageUrl(updatedBanner.banner_3),
       };
 
-      console.log('Banner updated successfully');
+
       res.status(200).json({ success: true, data: bannerWithUrls });
     } catch (error) {
       console.error("Update banner error:", error);
@@ -286,7 +173,7 @@ exports.updateBanner = (req, res) => {
 exports.deleteBanner = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('Delete banner request for ID:', id);
+
 
     // Find banner first
     const banner = await Banner.findById(id);
@@ -303,14 +190,14 @@ exports.deleteBanner = async (req, res) => {
       if (imagePath && fs.existsSync(imagePath)) {
         try {
           fs.unlinkSync(imagePath);
-          console.log('Deleted file:', imagePath);
+
         } catch (fileErr) {
           console.error('Error deleting file:', imagePath, fileErr);
         }
       }
     });
 
-    console.log('Banner deleted successfully');
+
     res.status(200).json({ success: true, message: "Banner deleted successfully" });
   } catch (error) {
     console.error("Delete banner error:", error);

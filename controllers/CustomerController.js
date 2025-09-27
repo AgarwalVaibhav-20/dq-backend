@@ -3,7 +3,6 @@ const Customer = require("../model/Customer");
 
 exports.createCustomer = async (req, res) => {
   try {
-    console.log("Incoming data:", req.body); // 🟢 log request body
     const { name, email, address, phoneNumber, restaurantId , birthday , anniversary } = req.body;
 
     if (!name || !email || !restaurantId) {

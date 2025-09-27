@@ -26,6 +26,7 @@ exports.createOrder = async (req, res) => {
       totalAmount: totalAmount || subtotal || 0,
       status: status || "pending",
     };
+    orderData.customerName = customerName;
 
     if (customerId) {
       orderData.customerId = customerId;
