@@ -174,6 +174,16 @@ const transactionSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    // soft deletion 
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletionRemark: {
+      type: String,
+      default: "",
+    },
+    // timestamps
     createdAt: {
       type: Date,
       default: Date.now,

@@ -23,7 +23,7 @@ exports.createCashTransaction = async (req, res) => {
       username,
       total: Number(total),
       type, // 'CashIn' or 'CashOut'
-      notes: notes || `${type} transaction`,
+      notes: notes,
 
       // Provide default/empty values for fields required by sales but not by cash transactions
       tableNumber: 'N/A',
@@ -235,7 +235,7 @@ exports.createTransaction = async (req, res) => {
 exports.getAllTransactions = async (req, res) => {
   try {
     const transactions = await Transaction.find({
-      status: { $ne: 'cancelled' }
+      isDeleted: { $ne: true },
     }).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
@@ -266,7 +266,7 @@ exports.getTransactionsByRestaurant = async (req, res) => {
 
     const transactions = await Transaction.find({
       restaurantId,
-      status: { $ne: 'cancelled' }
+      isDeleted: { $ne: true }
     })
       .populate("userId", "username email fullName")
       .sort({ createdAt: -1 });
@@ -358,7 +358,7 @@ exports.updateTransaction = async (req, res) => {
 // ---------------- DELETE TRANSACTION (SOFT DELETE) ----------------
 exports.deleteTransaction = async (req, res) => {
   try {
-    const { note } = req.body;
+    const { deletionRemark } = req.body;
     const transactionId = req.params.id;
     // Find the transaction first to get existing notes
     const existingTransaction = await Transaction.findById(transactionId);
@@ -373,8 +373,8 @@ exports.deleteTransaction = async (req, res) => {
     const transaction = await Transaction.findByIdAndUpdate(
       transactionId,
       {
-        status: "cancelled",
-        notes: note ? `${existingTransaction.notes || ''} | Cancelled: ${note}` : existingTransaction.notes,
+        isDeleted: true,
+        deletionRemark,
         updatedAt: new Date()
       },
       { new: true }
@@ -400,7 +400,7 @@ exports.getTransactionByCustomer = async (req, res) => {
   try {
     const transactions = await Transaction.find({
       customerId: req.params.id,
-      status: { $ne: 'cancelled' }
+      isDeleted: { $ne: true },
     }).sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -432,7 +432,7 @@ exports.getTransactionsByPaymentType = async (req, res) => {
 
     const transactions = await Transaction.find({
       type,
-      status: { $ne: 'cancelled' }
+      isDeleted: { $ne: true },
     }).sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -454,7 +454,7 @@ exports.getTransactionsByPaymentType = async (req, res) => {
 exports.getPOSTransactions = async (req, res) => {
   try {
     const transactions = await Transaction.find({
-      status: { $ne: 'cancelled' }
+      isDeleted: { $ne: true },
     })
       .populate("userId", "username email fullName")
       .populate("restaurantId", "name")

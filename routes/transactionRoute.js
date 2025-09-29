@@ -6,6 +6,7 @@ const { authMiddleware } = require("../middleware/authMiddleware");
 // CRUD routes
 router.get("/get-all/transaction", authMiddleware, TransactionController.getAllTransactions);
 router.get("/transactionById/:transactionId", authMiddleware, TransactionController.getTransactionById);
+router.get("/get-by-restaurant/transaction/:restaurantId", authMiddleware, TransactionController.getTransactionsByRestaurant);
 router.post("/create/transaction", authMiddleware, TransactionController.createTransaction);
 router.put("/:id", authMiddleware, TransactionController.updateTransaction);
 router.delete("/deleteTransaction/:id", authMiddleware, TransactionController.deleteTransaction);
