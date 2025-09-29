@@ -27,6 +27,7 @@ const uploadRoute =require("./routes/uploadRoute.js");
 const restaurant = require('./routes/restaurant.js')
 const loginActivity = require('./routes/loginActivity.js')
 const settingsRoute = require('./routes/settingsRoute.js')
+const taxRoute = require('./routes/taxRoute.js')
 dotenv.config();
 
 const app = express();
@@ -98,6 +99,7 @@ app.use(dashboard)
 app.use("/api/coupon", coupen)
 app.use("/api/login-activity", loginActivity)
 app.use("/api/settings", settingsRoute)
+app.use("/api/tax", taxRoute)
 app.use(uploadRoute);
 // 1. COMMENT this (for prod)
 app.listen(PORT, () => {
