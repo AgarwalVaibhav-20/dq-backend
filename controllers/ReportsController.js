@@ -1,14 +1,14 @@
 const Transaction = require('../model/Transaction');
-const Order = require('../model/Order');
+// const Order = require('../model/Order');
 const Customer = require('../model/Customer');
-const Menu = require('../model/Menu');
+// const Menu = require('../model/Menu');
 const mongoose = require('mongoose');
 
 // Helper function to get date range based on period
 const getDateRange = (period) => {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
+
   switch (period) {
     case 'daily':
       return {
@@ -37,11 +37,11 @@ const getDateRange = (period) => {
 exports.getAllDaysReports = async (req, res) => {
   try {
     const { customerId } = req.params; // This is actually restaurantId from frontend
-    
+
     const transactions = await Transaction.find({ restaurantId: customerId })
       .populate('customerId', 'name email')
       .sort({ createdAt: -1 });
-    
+
     res.json({
       success: true,
       data: transactions
@@ -78,13 +78,13 @@ exports.testEndpoint = async (req, res) => {
 exports.getAllTransactionsDebug = async (req, res) => {
   try {
     console.log('Debug endpoint called');
-    
+
     // Simple query without populate to avoid any issues
     const allTransactions = await Transaction.find({}).sort({ createdAt: -1 });
-    
+
     console.log('All transactions in collection:', allTransactions.length);
     console.log('Sample transaction:', allTransactions[0]);
-    
+
     res.json({
       success: true,
       data: allTransactions
@@ -105,24 +105,24 @@ exports.getAllTransactions = async (req, res) => {
     const { restaurantId } = req.params;
     console.log('getAllTransactions called with restaurantId:', restaurantId);
     console.log('User from auth middleware:', req.user);
-    
+
     // First, let's see all transactions in the collection
     const allTransactions = await Transaction.find({});
     console.log('Total transactions in collection:', allTransactions.length);
-    
+
     if (allTransactions.length > 0) {
       console.log('Sample transaction restaurantId:', allTransactions[0]?.restaurantId);
       console.log('Sample transaction restaurantId type:', typeof allTransactions[0]?.restaurantId);
       console.log('Requested restaurantId type:', typeof restaurantId);
     }
-    
+
     // For now, let's return ALL transactions to see them all
     const transactions = await Transaction.find({})
       .populate('customerId', 'name email')
       .sort({ createdAt: -1 });
-    
+
     console.log('Returning all transactions:', transactions.length);
-    
+
     res.json({
       success: true,
       data: transactions
@@ -142,9 +142,9 @@ exports.getReportByType = async (req, res) => {
   try {
     const { restaurantId } = req.params;
     const { type } = req.query; // daily, monthly, yearly
-    
+
     const dateRange = getDateRange(type);
-    
+
     const transactions = await Transaction.find({
       restaurantId: new mongoose.Types.ObjectId(restaurantId),
       createdAt: {
@@ -152,12 +152,12 @@ exports.getReportByType = async (req, res) => {
         $lt: dateRange.end
       }
     }).populate('customerId', 'name email');
-    
+
     // Calculate summary statistics
     const totalRevenue = transactions.reduce((sum, txn) => sum + txn.total, 0);
     const totalTransactions = transactions.length;
     const averageOrderValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
-    
+
     res.json({
       success: true,
       data: {
@@ -184,18 +184,18 @@ exports.getReportByType = async (req, res) => {
 exports.getCustomerReport = async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    
+
     const customers = await Customer.find({ restaurantId })
       .populate({
         path: 'transactions',
         model: 'Transaction',
         match: { restaurantId: new mongoose.Types.ObjectId(restaurantId) }
       });
-    
+
     const customerStats = customers.map(customer => {
       const totalSpent = customer.transactions.reduce((sum, txn) => sum + txn.total, 0);
       const totalOrders = customer.transactions.length;
-      
+
       return {
         ...customer.toObject(),
         totalSpent,
@@ -203,7 +203,7 @@ exports.getCustomerReport = async (req, res) => {
         averageOrderValue: totalOrders > 0 ? totalSpent / totalOrders : 0
       };
     });
-    
+
     res.json({
       success: true,
       data: customerStats
@@ -221,7 +221,7 @@ exports.getCustomerReport = async (req, res) => {
 exports.getTableReport = async (req, res) => {
   try {
     const { restaurantId, startDate, endDate } = req.query;
-    
+
     const transactions = await Transaction.find({
       restaurantId: new mongoose.Types.ObjectId(restaurantId),
       createdAt: {
@@ -229,7 +229,7 @@ exports.getTableReport = async (req, res) => {
         $lte: new Date(endDate)
       }
     });
-    
+
     // Group by table number
     const tableStats = {};
     transactions.forEach(txn => {
@@ -245,12 +245,12 @@ exports.getTableReport = async (req, res) => {
       tableStats[tableNumber].totalOrders++;
       tableStats[tableNumber].totalRevenue += txn.total;
     });
-    
+
     // Calculate average order value
     Object.values(tableStats).forEach(table => {
       table.averageOrderValue = table.totalOrders > 0 ? table.totalRevenue / table.totalOrders : 0;
     });
-    
+
     res.json({
       success: true,
       data: Object.values(tableStats)
@@ -348,7 +348,7 @@ exports.getTransactionCountByDate = async (req, res) => {
     });
     
     const result = Object.values(dailyStats).sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+
     res.json({
       success: true,
       data: result
@@ -414,7 +414,7 @@ exports.getTaxCollectedByDate = async (req, res) => {
         created_at: txn.createdAt
       });
     });
-    
+
     res.json({
       success: true,
       data: Object.values(dailyTaxStats).sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -458,7 +458,7 @@ exports.getTableUsageByDate = async (req, res) => {
       const date = txn.createdAt.toISOString().split('T')[0];
       const tableNumber = txn.tableNumber;
       const key = `${date}-${tableNumber}`;
-      
+
       if (!tableUsageStats[key]) {
         tableUsageStats[key] = {
           date,
@@ -499,7 +499,7 @@ exports.getTableUsageByDate = async (req, res) => {
         transactions: stat.transactions
       });
     });
-    
+
     res.json({
       success: true,
       data: Object.values(groupedByDate).sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -517,7 +517,7 @@ exports.getTableUsageByDate = async (req, res) => {
 exports.getPaymentTypeReport = async (req, res) => {
   try {
     const { restaurantId, startDate, endDate } = req.body;
-    
+
     const transactions = await Transaction.find({
       restaurantId: new mongoose.Types.ObjectId(restaurantId),
       createdAt: {
@@ -525,7 +525,7 @@ exports.getPaymentTypeReport = async (req, res) => {
         $lte: new Date(endDate)
       }
     });
-    
+
     // Group by payment type
     const paymentStats = {};
     transactions.forEach(txn => {
@@ -540,7 +540,7 @@ exports.getPaymentTypeReport = async (req, res) => {
       paymentStats[paymentType].totalCount++;
       paymentStats[paymentType].totalAmount += txn.total;
     });
-    
+
     res.json({
       success: true,
       data: Object.values(paymentStats)
@@ -558,12 +558,12 @@ exports.getPaymentTypeReport = async (req, res) => {
 exports.getDashboardStatisticsReport = async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    
+
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
-    
+
     // Today's stats
     const todayStats = await Transaction.aggregate([
       {
@@ -581,7 +581,7 @@ exports.getDashboardStatisticsReport = async (req, res) => {
         }
       }
     ]);
-    
+
     // This month's stats
     const monthStats = await Transaction.aggregate([
       {
@@ -599,7 +599,7 @@ exports.getDashboardStatisticsReport = async (req, res) => {
         }
       }
     ]);
-    
+
     // This year's stats
     const yearStats = await Transaction.aggregate([
       {
@@ -617,7 +617,7 @@ exports.getDashboardStatisticsReport = async (req, res) => {
         }
       }
     ]);
-    
+
     res.json({
       success: true,
       data: {
@@ -689,12 +689,13 @@ exports.getDiscountUsageByDate = async (req, res) => {
         created_at: txn.createdAt
       });
     });
-    
+
     res.json({
       success: true,
       data: Object.values(dailyDiscountStats).sort((a, b) => new Date(a.date) - new Date(b.date))
     });
   } catch (error) {
+    console.log(error , "here the error")
     res.status(500).json({
       success: false,
       message: 'Failed to fetch discount usage by date',
@@ -755,12 +756,12 @@ exports.getAverageOrderValueByDate = async (req, res) => {
         created_at: txn.createdAt
       });
     });
-    
+
     // Calculate average order value
     Object.values(dailyAvgStats).forEach(stat => {
       stat.averageOrderValue = stat.totalOrders > 0 ? stat.totalRevenue / stat.totalOrders : 0;
     });
-    
+
     res.json({
       success: true,
       data: Object.values(dailyAvgStats).sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -803,14 +804,14 @@ exports.getTransactionsByPaymentType = async (req, res) => {
     transactions.forEach(txn => {
       const date = txn.createdAt.toISOString().split('T')[0];
       const paymentType = txn.type;
-      
+
       if (!paymentTypeStats[date]) {
         paymentTypeStats[date] = {
           date,
           paymentTypes: {}
         };
       }
-      
+
       if (!paymentTypeStats[date].paymentTypes[paymentType]) {
         paymentTypeStats[date].paymentTypes[paymentType] = {
           paymentType,
@@ -819,7 +820,7 @@ exports.getTransactionsByPaymentType = async (req, res) => {
           transactions: []
         };
       }
-      
+
       paymentTypeStats[date].paymentTypes[paymentType].transactionCount++;
       paymentTypeStats[date].paymentTypes[paymentType].totalAmount += txn.total;
       paymentTypeStats[date].paymentTypes[paymentType].transactions.push({
@@ -835,13 +836,13 @@ exports.getTransactionsByPaymentType = async (req, res) => {
         created_at: txn.createdAt
       });
     });
-    
+
     // Convert to array format
     const result = Object.keys(paymentTypeStats).map(date => ({
       date,
       paymentTypes: Object.values(paymentTypeStats[date].paymentTypes)
     }));
-    
+
     res.json({
       success: true,
       data: result.sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -906,7 +907,7 @@ exports.getTotalRevenueByDate = async (req, res) => {
         created_at: txn.createdAt
       });
     });
-    
+
     res.json({
       success: true,
       data: Object.values(dailyRevenueStats).sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -960,12 +961,12 @@ exports.getMostOrderedDishes = async (req, res) => {
         dishStats[dishName].totalRevenue += item.subtotal;
       });
     });
-    
+
     // Sort by total orders
     const sortedDishes = Object.values(dishStats)
       .sort((a, b) => b.totalOrders - a.totalOrders)
       .slice(0, 10); // Top 10
-    
+
     res.json({
       success: true,
       data: sortedDishes
@@ -983,10 +984,10 @@ exports.getMostOrderedDishes = async (req, res) => {
 exports.getDashboardChartData = async (req, res) => {
   try {
     const { year, restaurantId } = req.query;
-    
+
     const startOfYear = new Date(year, 0, 1);
     const endOfYear = new Date(year + 1, 0, 1);
-    
+
     const monthlyStats = await Transaction.aggregate([
       {
         $match: {
@@ -1008,22 +1009,22 @@ exports.getDashboardChartData = async (req, res) => {
         $sort: { _id: 1 }
       }
     ]);
-    
+
     // Create labels for all 12 months
     const monthLabels = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    
+
     const revenueData = new Array(12).fill(0);
     const transactionData = new Array(12).fill(0);
-    
+
     monthlyStats.forEach(stat => {
       const monthIndex = stat._id - 1;
       revenueData[monthIndex] = stat.totalRevenue;
       transactionData[monthIndex] = stat.totalTransactions;
     });
-    
+
     res.json({
       success: true,
       data: {
@@ -1057,10 +1058,10 @@ exports.getDashboardChartData = async (req, res) => {
 exports.getWeeklyChartData = async (req, res) => {
   try {
     const { year, restaurantId } = req.query;
-    
+
     const startOfYear = new Date(year, 0, 1);
     const endOfYear = new Date(year + 1, 0, 1);
-    
+
     const weeklyStats = await Transaction.aggregate([
       {
         $match: {
@@ -1082,7 +1083,7 @@ exports.getWeeklyChartData = async (req, res) => {
         $sort: { _id: 1 }
       }
     ]);
-    
+
     res.json({
       success: true,
       data: {

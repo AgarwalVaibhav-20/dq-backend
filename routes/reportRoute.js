@@ -37,7 +37,12 @@ router.post('/getReportPaymentType', authMiddleware, ReportsController.getPaymen
 // Dashboard statistics report moved to dashboardRoute.js
 
 // Get discount usage by date
-router.get('/discountUsageByDate', authMiddleware, ReportsController.getDiscountUsageByDate);
+// router.get('/discountUsageByDate', authMiddleware, ReportsController.getDiscountUsageByDate);
+router.get('/discountUsageByDate', (req, res, next) => {
+  console.log("👉 Hit /discountUsageByDate route");
+  next();
+}, authMiddleware, ReportsController.getDiscountUsageByDate);
+
 
 // Get average order value by date
 router.get('/averageOrderValueByDate', authMiddleware, ReportsController.getAverageOrderValueByDate);

@@ -56,9 +56,10 @@ exports.getSubCategories = async (req, res) => {
 
     const subCategories = await SubCategory.find(filter);
 
+    // ✅ Return _id instead of id for consistency
     res.status(200).json(
       subCategories.map((sub) => ({
-        id: sub._id,
+        _id: sub._id,
         sub_category_name: sub.sub_category_name,
         categoryName: sub.categoryName,
         categoryId: sub.categoryId,
@@ -83,12 +84,19 @@ exports.updateSubCategory = async (req, res) => {
     }
 
     if (sub_category_name) subCategory.sub_category_name = sub_category_name.trim();
-    if (categoryId) subCategory.categoryId = categoryId;
+    if (categoryId) {
+      const category = await Category.findById(categoryId);
+      if (category) {
+        subCategory.categoryId = categoryId;
+        subCategory.categoryName = category.categoryName;
+      }
+    }
 
     await subCategory.save();
 
+    // ✅ Return _id instead of id for consistency
     res.status(200).json({
-      id: subCategory._id,
+      _id: subCategory._id,
       sub_category_name: subCategory.sub_category_name,
       categoryName: subCategory.categoryName,
       categoryId: subCategory.categoryId,
@@ -110,7 +118,8 @@ exports.deleteSubCategory = async (req, res) => {
       return res.status(404).json({ message: "SubCategory not found" });
     }
 
-    res.status(200).json({ id });
+    // ✅ Return _id instead of id for consistency
+    res.status(200).json({ _id: id });
   } catch (error) {
     console.error("Error deleting subcategory:", error);
     res.status(500).json({ message: "Internal server error" });
