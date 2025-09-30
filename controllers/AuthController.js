@@ -20,6 +20,7 @@ const formatDatatoSend = (user) => {
     username: user.username,
     email: user.email,
     role: user.role,
+    permissions: user.permissions || {},
     isVerified: user.isVerified,
   };
 };
@@ -155,6 +156,7 @@ module.exports = {
           username: user.username,
           userId: user._id,
           role: user.role,
+          permissions: user.permissions || [],
           restaurantId: profile?.restaurantId || null,
           profileImage: profile?.profileImage || null,
         }
@@ -295,6 +297,7 @@ module.exports = {
           username: user.username,
           email: user.email,
           role: user.role,
+          permissions: user.permissions || [],
           isVerified: user.isVerified,
           profilePhoto: user.profilePhoto || null,
         },
@@ -357,7 +360,15 @@ module.exports = {
       }
 
       if (role) user.role = role;
-      if (permissions) user.permissions = permissions;
+      if (permissions) {
+        // Store permissions as array of strings
+        if (Array.isArray(permissions)) {
+          user.permissions = permissions;
+        } else {
+          // Convert object to array if needed
+          user.permissions = Object.keys(permissions).filter(key => permissions[key] === true);
+        }
+      }
 
       await user.save();
       res.json({

@@ -267,14 +267,59 @@ exports.getTableReport = async (req, res) => {
 // Get transaction count by date
 exports.getTransactionCountByDate = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, restaurantId } = req.query;
     
-    const transactions = await Transaction.find({
+    // Validation
+    if (!startDate || !endDate || !restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameters: startDate, endDate, and restaurantId are required'
+      });
+    }
+
+    // Validate date format
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format. Please use YYYY-MM-DD format'
+      });
+    }
+
+    if (start > end) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date cannot be after end date'
+      });
+    }
+
+    // Handle restaurantId - it can be either a string or ObjectId
+    let restaurantQuery;
+    if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+      // If it's a valid ObjectId, use it as is
+      restaurantQuery = new mongoose.Types.ObjectId(restaurantId);
+    } else {
+      // If it's a string, use it directly (for string restaurantId)
+      restaurantQuery = restaurantId;
+    }
+    
+    const query = {
+      restaurantId: restaurantQuery,
       createdAt: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: start,
+        $lte: end
       }
-    });
+    };
+    
+    console.log('Query:', JSON.stringify(query, null, 2));
+    
+    const transactions = await Transaction.find(query)
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
+    
+    console.log(`Found ${transactions.length} transactions for restaurant ${restaurantId}`);
     
     // Group by date
     const dailyStats = {};
@@ -283,19 +328,33 @@ exports.getTransactionCountByDate = async (req, res) => {
       if (!dailyStats[date]) {
         dailyStats[date] = {
           date,
-          count: 0,
-          totalRevenue: 0
+          transactionCount: 0,
+          totalRevenue: 0,
+          transactions: []
         };
       }
-      dailyStats[date].count++;
-      dailyStats[date].totalRevenue += txn.total;
+      dailyStats[date].transactionCount++;
+      dailyStats[date].totalRevenue += txn.total || 0;
+      dailyStats[date].transactions.push({
+        _id: txn._id,
+        tableNumber: txn.tableNumber,
+        user_id: txn.customerId?.name || txn.username || 'Unknown',
+        payment_type: txn.type,
+        total: txn.total || 0,
+        discount: txn.discount || 0,
+        tax: txn.taxAmount || 0,
+        created_at: txn.createdAt
+      });
     });
+    
+    const result = Object.values(dailyStats).sort((a, b) => new Date(a.date) - new Date(b.date));
     
     res.json({
       success: true,
-      data: Object.values(dailyStats).sort((a, b) => new Date(a.date) - new Date(b.date))
+      data: result
     });
   } catch (error) {
+    console.error('Error in getTransactionCountByDate:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch transaction count by date',
@@ -307,14 +366,26 @@ exports.getTransactionCountByDate = async (req, res) => {
 // Get tax collected by date
 exports.getTaxCollectedByDate = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, restaurantId } = req.query;
     
-    const transactions = await Transaction.find({
+    const query = {
       createdAt: {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       }
-    });
+    };
+    
+    if (restaurantId) {
+      if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+        query.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      } else {
+        query.restaurantId = restaurantId;
+      }
+    }
+    
+    const transactions = await Transaction.find(query)
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
     
     // Group by date
     const dailyTaxStats = {};
@@ -324,11 +395,24 @@ exports.getTaxCollectedByDate = async (req, res) => {
         dailyTaxStats[date] = {
           date,
           totalTax: 0,
-          transactionCount: 0
+          transactionCount: 0,
+          transactions: []
         };
       }
       dailyTaxStats[date].totalTax += txn.taxAmount || 0;
       dailyTaxStats[date].transactionCount++;
+      dailyTaxStats[date].transactions.push({
+        _id: txn._id,
+        tableNumber: txn.tableNumber,
+        userId: txn.customerId?.name || txn.username || 'Unknown',
+        type: txn.type,
+        sub_total: txn.sub_total || 0,
+        discount: txn.discount || 0,
+        tax: txn.taxAmount || 0,
+        total: txn.total,
+        note: txn.notes || '',
+        created_at: txn.createdAt
+      });
     });
     
     res.json({
@@ -347,14 +431,26 @@ exports.getTaxCollectedByDate = async (req, res) => {
 // Get table usage by date
 exports.getTableUsageByDate = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, restaurantId } = req.query;
     
-    const transactions = await Transaction.find({
+    const query = {
       createdAt: {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       }
-    });
+    };
+    
+    if (restaurantId) {
+      if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+        query.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      } else {
+        query.restaurantId = restaurantId;
+      }
+    }
+    
+    const transactions = await Transaction.find(query)
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
     
     // Group by date and table
     const tableUsageStats = {};
@@ -368,16 +464,45 @@ exports.getTableUsageByDate = async (req, res) => {
           date,
           tableNumber,
           usageCount: 0,
-          totalRevenue: 0
+          totalRevenue: 0,
+          transactions: []
         };
       }
       tableUsageStats[key].usageCount++;
       tableUsageStats[key].totalRevenue += txn.total;
+      tableUsageStats[key].transactions.push({
+        _id: txn._id,
+        user_id: txn.customerId?.name || txn.username || 'Unknown',
+        payment_type: txn.type,
+        sub_total: txn.sub_total || 0,
+        discount: txn.discount || 0,
+        tax: txn.taxAmount || 0,
+        total: txn.total,
+        note: txn.notes || '',
+        created_at: txn.createdAt
+      });
+    });
+    
+    // Group by date for frontend compatibility
+    const groupedByDate = {};
+    Object.values(tableUsageStats).forEach(stat => {
+      if (!groupedByDate[stat.date]) {
+        groupedByDate[stat.date] = {
+          date: stat.date,
+          tables: []
+        };
+      }
+      groupedByDate[stat.date].tables.push({
+        tableNumber: stat.tableNumber,
+        transactionCount: stat.usageCount,
+        totalRevenue: stat.totalRevenue,
+        transactions: stat.transactions
+      });
     });
     
     res.json({
       success: true,
-      data: Object.values(tableUsageStats).sort((a, b) => new Date(a.date) - new Date(b.date))
+      data: Object.values(groupedByDate).sort((a, b) => new Date(a.date) - new Date(b.date))
     });
   } catch (error) {
     res.status(500).json({
@@ -513,15 +638,27 @@ exports.getDashboardStatisticsReport = async (req, res) => {
 // Get discount usage by date
 exports.getDiscountUsageByDate = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, restaurantId } = req.query;
     
-    const transactions = await Transaction.find({
+    const query = {
       createdAt: {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       },
       discount: { $gt: 0 }
-    });
+    };
+    
+    if (restaurantId) {
+      if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+        query.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      } else {
+        query.restaurantId = restaurantId;
+      }
+    }
+    
+    const transactions = await Transaction.find(query)
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
     
     // Group by date
     const dailyDiscountStats = {};
@@ -531,13 +668,26 @@ exports.getDiscountUsageByDate = async (req, res) => {
         dailyDiscountStats[date] = {
           date,
           discountCount: 0,
-          totalDiscountAmount: 0,
-          totalTransactions: 0
+          totalDiscount: 0,
+          totalTransactions: 0,
+          transactions: []
         };
       }
       dailyDiscountStats[date].discountCount++;
-      dailyDiscountStats[date].totalDiscountAmount += txn.discountAmount || 0;
+      dailyDiscountStats[date].totalDiscount += txn.discountAmount || 0;
       dailyDiscountStats[date].totalTransactions++;
+      dailyDiscountStats[date].transactions.push({
+        _id: txn._id,
+        tableNumber: txn.tableNumber,
+        user_id: txn.customerId?.name || txn.username || 'Unknown',
+        payment_type: txn.type,
+        sub_total: txn.sub_total || 0,
+        discount: txn.discount || 0,
+        tax: txn.taxAmount || 0,
+        total: txn.total,
+        note: txn.notes || '',
+        created_at: txn.createdAt
+      });
     });
     
     res.json({
@@ -556,14 +706,26 @@ exports.getDiscountUsageByDate = async (req, res) => {
 // Get average order value by date
 exports.getAverageOrderValueByDate = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, restaurantId } = req.query;
     
-    const transactions = await Transaction.find({
+    const query = {
       createdAt: {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       }
-    });
+    };
+    
+    if (restaurantId) {
+      if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+        query.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      } else {
+        query.restaurantId = restaurantId;
+      }
+    }
+    
+    const transactions = await Transaction.find(query)
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
     
     // Group by date
     const dailyAvgStats = {};
@@ -574,11 +736,24 @@ exports.getAverageOrderValueByDate = async (req, res) => {
           date,
           totalRevenue: 0,
           totalOrders: 0,
-          averageOrderValue: 0
+          averageOrderValue: 0,
+          transactions: []
         };
       }
       dailyAvgStats[date].totalRevenue += txn.total;
       dailyAvgStats[date].totalOrders++;
+      dailyAvgStats[date].transactions.push({
+        _id: txn._id,
+        tableNumber: txn.tableNumber,
+        user_id: txn.customerId?.name || txn.username || 'Unknown',
+        payment_type: txn.type,
+        sub_total: txn.sub_total || 0,
+        discount: txn.discount || 0,
+        tax: txn.taxAmount || 0,
+        total: txn.total,
+        note: txn.notes || '',
+        created_at: txn.createdAt
+      });
     });
     
     // Calculate average order value
@@ -602,14 +777,26 @@ exports.getAverageOrderValueByDate = async (req, res) => {
 // Get transactions by payment type
 exports.getTransactionsByPaymentType = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, restaurantId } = req.query;
     
-    const transactions = await Transaction.find({
+    const query = {
       createdAt: {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       }
-    });
+    };
+    
+    if (restaurantId) {
+      if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+        query.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      } else {
+        query.restaurantId = restaurantId;
+      }
+    }
+    
+    const transactions = await Transaction.find(query)
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
     
     // Group by date and payment type
     const paymentTypeStats = {};
@@ -628,12 +815,25 @@ exports.getTransactionsByPaymentType = async (req, res) => {
         paymentTypeStats[date].paymentTypes[paymentType] = {
           paymentType,
           transactionCount: 0,
-          totalAmount: 0
+          totalAmount: 0,
+          transactions: []
         };
       }
       
       paymentTypeStats[date].paymentTypes[paymentType].transactionCount++;
       paymentTypeStats[date].paymentTypes[paymentType].totalAmount += txn.total;
+      paymentTypeStats[date].paymentTypes[paymentType].transactions.push({
+        _id: txn._id,
+        user_id: txn.customerId?.name || txn.username || 'Unknown',
+        tableNumber: txn.tableNumber,
+        payment_type: txn.type,
+        sub_total: txn.sub_total || 0,
+        discount: txn.discount || 0,
+        tax: txn.taxAmount || 0,
+        total: txn.total,
+        note: txn.notes || '',
+        created_at: txn.createdAt
+      });
     });
     
     // Convert to array format
@@ -658,14 +858,26 @@ exports.getTransactionsByPaymentType = async (req, res) => {
 // Get total revenue by date
 exports.getTotalRevenueByDate = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, restaurantId } = req.query;
     
-    const transactions = await Transaction.find({
+    const query = {
       createdAt: {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       }
-    });
+    };
+    
+    if (restaurantId) {
+      if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+        query.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      } else {
+        query.restaurantId = restaurantId;
+      }
+    }
+    
+    const transactions = await Transaction.find(query)
+      .populate('customerId', 'name email')
+      .sort({ createdAt: -1 });
     
     // Group by date
     const dailyRevenueStats = {};
@@ -675,11 +887,24 @@ exports.getTotalRevenueByDate = async (req, res) => {
         dailyRevenueStats[date] = {
           date,
           totalRevenue: 0,
-          transactionCount: 0
+          transactionCount: 0,
+          transactions: []
         };
       }
       dailyRevenueStats[date].totalRevenue += txn.total;
       dailyRevenueStats[date].transactionCount++;
+      dailyRevenueStats[date].transactions.push({
+        _id: txn._id,
+        user_id: txn.customerId?.name || txn.username || 'Unknown',
+        tableNumber: txn.tableNumber,
+        payment_type: txn.type,
+        sub_total: txn.sub_total || 0,
+        discount: txn.discount || 0,
+        tax: txn.taxAmount || 0,
+        total: txn.total,
+        note: txn.notes || '',
+        created_at: txn.createdAt
+      });
     });
     
     res.json({
@@ -698,14 +923,24 @@ exports.getTotalRevenueByDate = async (req, res) => {
 // Get most ordered dishes
 exports.getMostOrderedDishes = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, restaurantId } = req.query;
     
-    const transactions = await Transaction.find({
+    const query = {
       createdAt: {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       }
-    });
+    };
+    
+    if (restaurantId) {
+      if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+        query.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      } else {
+        query.restaurantId = restaurantId;
+      }
+    }
+    
+    const transactions = await Transaction.find(query);
     
     // Count dish orders
     const dishStats = {};

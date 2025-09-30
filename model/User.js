@@ -42,15 +42,10 @@ const userSchema = new mongoose.Schema(
       default: 1, 
     },
 
-    // 🔹 Permissions (object with flexible keys)
+    // 🔹 Permissions (array of allowed navigation items)
     permissions: {
-      type: Object,
-      default: {
-        canAdd: true,
-        canEdit: true,
-        canDelete: true,
-        canView: true,
-      },
+      type: [String],
+      default: [], // Empty array means no specific permissions (admin gets all by default)
     },
   },
   { timestamps: true }
