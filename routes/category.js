@@ -252,16 +252,16 @@ router.get('/category/:id', async (req, res) => {
 // })
 
 // -------------------UPDATE-CATEGORY---------------------------
-router.post(
+router.put(
   "/category/update/:id",
   upload.single("categoryImage"),
   async (req, res) => {
     try {
-      const { categoryName, restaurantId } = req.body;
+      const body = req.body;
       const updateData = {};
 
-      if (categoryName) updateData.categoryName = categoryName;
-      if (restaurantId) updateData.restaurantId = restaurantId;
+      if (body.categoryName) updateData.categoryName = body.categoryName;
+      if (body.restaurantId) updateData.restaurantId = body.restaurantId;
 
       // If a new image is uploaded, handle it from the buffer
       if (req.file) {
