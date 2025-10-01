@@ -61,7 +61,14 @@ userSchema.pre("save", async function (next) {
 
 // 📌 Compare password
 userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  console.log('🔍 DEBUG: comparePassword called');
+  console.log('🔍 DEBUG: candidatePassword:', candidatePassword);
+  console.log('🔍 DEBUG: stored password hash:', this.password);
+  
+  const result = await bcrypt.compare(candidatePassword, this.password);
+  console.log('🔍 DEBUG: bcrypt.compare result:', result);
+  
+  return result;
 };
 
 // 📌 Generate JWT

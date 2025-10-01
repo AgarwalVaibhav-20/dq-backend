@@ -6,12 +6,40 @@ const User = require('../model/User');
 // @access Private
 const createLoginActivity = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, pin } = req.body;
     const userId = req.userId;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Name is required' });
     }
+
+    if (!pin || !pin.trim()) {
+      return res.status(400).json({ message: 'PIN is required' });
+    }
+
+    // Verify PIN by finding the user and comparing password
+    console.log('🔍 DEBUG: userId from token:', userId);
+    console.log('🔍 DEBUG: PIN received:', pin);
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log('❌ DEBUG: User not found for userId:', userId);
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('🔍 DEBUG: User found:', user.username, user.email);
+    console.log('🔍 DEBUG: User password hash:', user.password);
+
+    // Compare the provided PIN with the user's password
+    const isPinValid = await user.comparePassword(pin);
+    console.log('🔍 DEBUG: PIN validation result:', isPinValid);
+    
+    if (!isPinValid) {
+      console.log('❌ DEBUG: PIN validation failed');
+      return res.status(401).json({ message: 'Invalid PIN. Please check your password.' });
+    }
+
+    console.log('✅ DEBUG: PIN validation successful');
 
     // Check if user already has an active session
     const existingActivity = await LoginActivity.findOne({
@@ -171,10 +199,28 @@ const getCurrentSession = async (req, res) => {
   }
 };
 
+// @desc Test endpoint to verify backend is working
+// @route GET /api/login-activity/test
+// @access Public
+const testEndpoint = async (req, res) => {
+  try {
+    console.log('🧪 Test endpoint called');
+    res.json({ 
+      message: 'Backend is working!', 
+      timestamp: new Date().toISOString(),
+      userId: req.userId || 'No userId'
+    });
+  } catch (error) {
+    console.error('Test endpoint error:', error);
+    res.status(500).json({ message: 'Test endpoint error' });
+  }
+};
+
 module.exports = {
   createLoginActivity,
   getLoginActivities,
   getAllLoginActivities,
   updateLogoutTime,
-  getCurrentSession
+  getCurrentSession,
+  testEndpoint
 };

@@ -88,6 +88,11 @@ const orderSchema = new mongoose.Schema(
       default: 'Walk-in Customer',
       trim: true
     },
+    customerAddress: {
+      type: String,
+      default: '',
+      trim: true
+    },
     orderType: {
       type: String,
       enum: ['dine-in', 'takeaway', 'delivery', 'KOT'],
@@ -138,12 +143,26 @@ orderSchema.index({ tableNumber: 1, status: 1 });
 orderSchema.index({ customerId: 1 });
 orderSchema.index({ status: 1 });
 
-orderSchema.pre("save", function (next) {
+orderSchema.pre("save", async function (next) {
   if (!this.orderId) {
     const timestamp = Date.now().toString().slice(-6); // last 6 digits of timestamp
     const random = Math.random().toString(36).substr(2, 4).toUpperCase();
     this.orderId = `ORD-${timestamp}${random}`; // e.g. ORD-458721ABCD
   }
+  
+  // Auto-populate customerAddress from customer collection if not already set
+  if (this.customerId && !this.customerAddress) {
+    try {
+      const Customer = mongoose.model('Customer');
+      const customer = await Customer.findById(this.customerId);
+      if (customer && customer.address) {
+        this.customerAddress = customer.address;
+      }
+    } catch (error) {
+      console.error('Error populating customer address:', error);
+    }
+  }
+  
   next();
 });
 

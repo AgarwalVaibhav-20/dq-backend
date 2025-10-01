@@ -30,6 +30,11 @@ exports.createOrder = async (req, res) => {
 
     if (customerId) {
       orderData.customerId = customerId;
+      // Fetch customer address if customerId is provided
+      const customer = await Customer.findById(customerId);
+      if (customer && customer.address) {
+        orderData.customerAddress = customer.address;
+      }
     } else if (customerName) {
       // Try to find existing customer by name
       let customer = await Customer.findOne({
@@ -47,6 +52,9 @@ exports.createOrder = async (req, res) => {
 
       if (customer) {
         orderData.customerId = customer._id;
+        if (customer.address) {
+          orderData.customerAddress = customer.address;
+        }
       }
     }
 
@@ -89,6 +97,18 @@ exports.createOrder = async (req, res) => {
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
+      .populate("customerId", "name email address")
+      .populate("deliveryId", "deliveryPerson status")
+      .sort({ createdAt: -1 });
+    
+    // Update orders that don't have customerAddress but have customerId with address
+    for (let order of orders) {
+      if (!order.customerAddress && order.customerId && order.customerId.address) {
+        order.customerAddress = order.customerId.address;
+        await order.save();
+      }
+    }
+    
     res.json({
       success: true,
       data: orders,
@@ -149,7 +169,9 @@ exports.getCombinedOrders = async (req, res) => {
       restaurantId,
       tableNumber: { $in: tableNumbers },
       status: { $ne: 'cancelled' }
-    }).populate('items.itemId')
+    })
+      .populate('items.itemId')
+      .populate('customerId', 'name email address')
 
     return res.status(200).json({ success: true, orders })
   } catch (err) {
@@ -160,10 +182,16 @@ exports.getCombinedOrders = async (req, res) => {
 exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate("customerId", "name email")
+      .populate("customerId", "name email address")
       .populate("deliveryId", "deliveryPerson status");
 
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    // Update order if it doesn't have customerAddress but has customerId with address
+    if (!order.customerAddress && order.customerId && order.customerId.address) {
+      order.customerAddress = order.customerId.address;
+      await order.save();
+    }
 
     res.json({ success: true, data: order });
   } catch (err) {

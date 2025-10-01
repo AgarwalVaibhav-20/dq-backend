@@ -6,7 +6,8 @@ const {
   getLoginActivities,
   getAllLoginActivities,
   updateLogoutTime,
-  getCurrentSession
+  getCurrentSession,
+  testEndpoint
 } = require('../controllers/LoginActivityController');
 
 // @route POST /api/login-activity
@@ -28,6 +29,11 @@ router.get('/all', authMiddleware, getAllLoginActivities);
 // @desc Update logout time
 // @access Private
 router.put('/logout', authMiddleware, updateLogoutTime);
+
+// @route GET /api/login-activity/test
+// @desc Test endpoint
+// @access Public
+router.get('/test', testEndpoint);
 
 // @route GET /api/login-activity/current
 // @desc Get current active session
