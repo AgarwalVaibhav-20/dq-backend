@@ -166,6 +166,36 @@ orderSchema.pre("save", async function (next) {
   next();
 });
 
+// Post-save hook to update customer's totalSpent when order is completed
+orderSchema.post("save", async function (doc) {
+  // Only update if order is completed/served and has customerId
+  if (doc.customerId && (doc.status === 'completed' || doc.status === 'served')) {
+    try {
+      const Customer = mongoose.model('Customer');
+      const Order = mongoose.model('Order');
+      
+      // Calculate total spent from all completed/served orders for this customer
+      const orders = await Order.find({ 
+        customerId: doc.customerId,
+        status: { $in: ['completed', 'served'] }
+      });
+
+      const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+      
+      // Update customer's totalSpent
+      await Customer.findByIdAndUpdate(
+        doc.customerId,
+        { totalSpent },
+        { new: true }
+      );
+
+      console.log(`Updated total spent for customer ${doc.customerId}: ₹${totalSpent}`);
+    } catch (error) {
+      console.error('Error updating customer total spent:', error);
+    }
+  }
+});
+
 
 // Check if the model is already compiled, if not create it
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);

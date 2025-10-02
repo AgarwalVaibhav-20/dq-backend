@@ -29,9 +29,41 @@ const customerSchema = new mongoose.Schema(
     anniversary: {
       type: Date,
     },
+    frequency: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    customerType: {
+      type: String,
+      enum: ['FirstTimer', 'Corporate', 'Regular', 'Lost Customer', 'High Spender'],
+      default: 'FirstTimer',
+    },
+    totalSpent: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true }
 );
+
+// Pre-save middleware to automatically determine customer type
+customerSchema.pre('save', function(next) {
+  if (this.isModified('frequency') || this.isModified('totalSpent')) {
+    if (this.frequency === 0) {
+      this.customerType = 'FirstTimer';
+    } else if (this.totalSpent > 500) {
+      this.customerType = 'High Spender';
+    } else if (this.frequency >= 10) {
+      this.customerType = 'Regular';
+    } else if (this.frequency >= 1 && this.frequency <= 3) {
+      this.customerType = 'Lost Customer';
+    }
+    // Corporate type is set manually in UI, not auto-calculated
+  }
+  next();
+});
 
 const Customer = mongoose.model("Customer", customerSchema);
 module.exports = Customer;
