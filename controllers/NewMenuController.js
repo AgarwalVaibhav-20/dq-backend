@@ -75,6 +75,7 @@ exports.createMenuItem = async (req, res) => {
       unit,
       description,
       preparationTime,
+      rewardPoints,
     } = req.body;
 
     if (!itemName?.trim() || !categoryId || !restaurantId) {
@@ -137,6 +138,7 @@ exports.createMenuItem = async (req, res) => {
       unit: unit?.trim() || "",
       description: description?.trim() || "",
       preparationTime: preparationTime ? Number(preparationTime) : 0,
+      rewardPoints: rewardPoints ? Number(rewardPoints) : 0,
     };
 
     const menuItem = await Menu.create(menuItemData);

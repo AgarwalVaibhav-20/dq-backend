@@ -45,6 +45,7 @@ const menuSchema = new mongoose.Schema(
 
     description: { type: String, trim: true },
     preparationTime: { type: Number, min: 0 },
+    rewardPoints: { type: Number, default: 0, min: 0 },
     // isActive: { type: Boolean, default: true },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
