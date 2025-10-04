@@ -39,10 +39,10 @@ const createOrUpdateSettings = async (req, res) => {
       console.log('No user ID found in request')
       return res.status(401).json(errorResponse('User not authenticated', 401))
     }
-    
-    const { systemName, chargeOfSystem, willOccupy } = req.body
 
-    console.log('Parsed data:', { restaurantId, userId, systemName, chargeOfSystem, willOccupy })
+    const { systemName, chargeOfSystem, willOccupy, color } = req.body
+
+    console.log('Parsed data:', { restaurantId, userId, systemName, chargeOfSystem, willOccupy, color })
 
     if (!restaurantId) {
       return res.status(400).json(errorResponse('Restaurant ID is required', 400))
@@ -58,6 +58,7 @@ const createOrUpdateSettings = async (req, res) => {
       systemName,
       chargeOfSystem,
       willOccupy: willOccupy === 'true' || willOccupy === true,
+      color,
       restaurantId,
       createdBy: userId
     })

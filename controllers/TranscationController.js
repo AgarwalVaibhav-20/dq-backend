@@ -3,6 +3,7 @@ const User = require("../model/User");
 const mongoose = require('mongoose');
 
 // Create Cash In or Cash Out Transaction
+
 exports.createCashTransaction = async (req, res) => {
   try {
     const { restaurantId, userId, username, total, type, notes } = req.body;

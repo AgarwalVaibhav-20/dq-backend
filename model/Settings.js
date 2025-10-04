@@ -16,6 +16,10 @@ const settingsSchema = new mongoose.Schema({
     required: true,
     default: false
   },
+  color: { 
+    type: String, 
+    default: '#ff0000',
+  },
   restaurantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Restaurants',
