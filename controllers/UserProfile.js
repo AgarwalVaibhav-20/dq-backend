@@ -32,11 +32,19 @@ exports.getAllUsers = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
   try {
+    console.log("=== PROFILE UPDATE REQUEST ===");
+    console.log("User ID:", req.params.userId);
+    console.log("Request body:", req.body);
+    
     const updateData = { ...req.body };
+    console.log("Update data before processing:", updateData);
+    
     // prevent email/username overwrite unless you allow it
     delete updateData.password;
     delete updateData.email;
     delete updateData.username;
+    
+    console.log("Update data after processing:", updateData);
 
     const updatedUser = await UserProfile.findOneAndUpdate(
       { userId: req.params.userId },
@@ -44,10 +52,13 @@ exports.updateProfile = async (req, res) => {
       { new: true, runValidators: true }
     ).select("-password -verifyOTP -otpExpiry");
 
+    console.log("Updated user from database:", updatedUser);
+
     if (!updatedUser) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    console.log("Sending response:", { success: true, data: updatedUser });
     res.json({ success: true, data: updatedUser });
   } catch (err) {
     console.error("Error updating profile:", err);
