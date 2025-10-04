@@ -115,8 +115,8 @@ const updateSettingsById = async (req, res) => {
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401))
     }
-    
-    const { systemName, chargeOfSystem, willOccupy } = req.body
+
+    const { systemName, chargeOfSystem, willOccupy, color } = req.body
 
     // Validation
     if (!systemName || !chargeOfSystem) {
@@ -129,6 +129,7 @@ const updateSettingsById = async (req, res) => {
         systemName,
         chargeOfSystem,
         willOccupy: willOccupy === 'true' || willOccupy === true,
+        color,
         updatedBy: userId
       },
       { new: true, runValidators: true }
