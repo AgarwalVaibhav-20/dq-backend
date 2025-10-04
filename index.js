@@ -28,6 +28,7 @@ const restaurant = require('./routes/restaurant.js')
 const loginActivity = require('./routes/loginActivity.js')
 const settingsRoute = require('./routes/settingsRoute.js')
 const taxRoute = require('./routes/taxRoute.js')
+const memberRoute = require('./routes/memberRoutes.js')
 dotenv.config();
 
 const app = express();
@@ -84,6 +85,7 @@ app.use(supplier)
 app.use(subcategory)
 app.use("/reservations", reservation)
 app.use(inventory)
+app.use(memberRoute)
 app.use(menu);
 app.use(qr)
 app.use(due)

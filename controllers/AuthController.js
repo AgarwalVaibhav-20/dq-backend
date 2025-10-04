@@ -231,13 +231,16 @@ module.exports = {
         "Forgot password - OTP",
         `Welcome! Your One-Time Password is : ${otp} (Valid for only 10 minutes)`
       );
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`📩 Reset OTP for ${email}: ${otp}`);
+      }
+
       res.json({ message: "Password reset OTP sent to email" });
     } catch (err) {
       console.error("❌ forgotOtp error:", err.stack);
       res.status(500).json({ error: "Server error while sending reset OTP" });
     }
   },
-
   async resetOtp(req, res) {
 
     res.json({ message: "Password reset successfully ✅" });

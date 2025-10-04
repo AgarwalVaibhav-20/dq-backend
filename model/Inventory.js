@@ -21,7 +21,6 @@ const inventorySchema = new mongoose.Schema(
       },
       purchasedAt: {
         type: Date,
-        // required: true,
         default: Date.now,
       },
     },
