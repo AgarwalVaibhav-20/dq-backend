@@ -1,3 +1,15 @@
+// const mongoose = require("mongoose");
+
+// const itemSchema = new mongoose.Schema({
+//   name: { type: String, required: true, trim: true },
+//   unit: { type: String, required: true, enum: ["kg","litre","gm","pcs","mg","ml"] },
+//   restaurantId: { type: String, required: true },
+//   isDeleted: { type: Boolean, default: false },
+//   deletedTime: { type: Date },
+// }, { timestamps: true });
+
+// const Item = mongoose.model("Item", itemSchema);
+
 const mongoose = require("mongoose");
 
 const inventorySchema = new mongoose.Schema(
@@ -19,21 +31,43 @@ const inventorySchema = new mongoose.Schema(
       total:{
         type:Number,
       },
+      totalQuantity: {
+        type: Number,
+        default: 0,
+      },
       purchasedAt: {
         type: Date,
         default: Date.now,
       },
     },
-    supplierName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    supplierId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Supplier",
-      required: true,
-    },
+    //  Changed to suppliers array instead of single supplier
+    suppliers: [{
+      supplierName: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      supplierId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Supplier",
+        required: true,
+      },
+      quantity: {
+        type: Number,
+        required: true,
+      },
+      amount: {
+        type: Number,
+        required: true,
+      },
+      total: {
+        type: Number,
+      },
+      purchasedAt: {
+        type: Date,
+        default: Date.now,
+      }
+    }],
     restaurantId: {
       type: String,
       required: true,
@@ -57,9 +91,9 @@ const inventorySchema = new mongoose.Schema(
 // ✅ Virtual for supplier population
 inventorySchema.virtual("supplier", {
   ref: "Supplier",
-  localField: "supplierId",
+  localField: "suppliers.supplierId",
   foreignField: "_id",
-  justOne: true,
+  justOne: false,
 });
 
 const Inventory = mongoose.model("Inventory", inventorySchema);

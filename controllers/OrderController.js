@@ -4,6 +4,7 @@ const Delivery = require("../model/Delivery");
 
 exports.createOrder = async (req, res) => {
   try {
+    
     const {
       customerId,
       items,
@@ -21,12 +22,45 @@ exports.createOrder = async (req, res) => {
       kotGenerated,
       paymentStatus,
     } = req.body;
+
+    // Enhanced validation
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items array is required and cannot be empty"
+      });
+    }
+
+    if (!restaurantId && !req.user) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required"
+      });
+    }
+
+    if (!tableNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Table number is required"
+      });
+    }
+
+    // Use restaurantId from request or from authenticated user
+    const finalRestaurantId = restaurantId || req.user._id;
+    const finalUserId = userId || req.user._id;
+
+    console.log("Final restaurantId:", finalRestaurantId);
+    console.log("Final userId:", finalUserId);
+
     let orderData = {
       items,
       totalAmount: totalAmount || subtotal || 0,
       status: status || "pending",
+      restaurantId: finalRestaurantId,
+      userId: finalUserId,
+      tableNumber: tableNumber || "Table-1", // Default table if not provided
     };
-    orderData.customerName = customerName;
+    orderData.customerName = customerName || "Walk-in Customer";
 
     if (customerId) {
       orderData.customerId = customerId;
@@ -60,9 +94,6 @@ exports.createOrder = async (req, res) => {
 
     // Add additional fields if provided
     if (deliveryId) orderData.deliveryId = deliveryId;
-    if (restaurantId) orderData.restaurantId = restaurantId;
-    if (userId) orderData.userId = userId;
-    if (tableNumber) orderData.tableNumber = tableNumber;
     if (orderType) orderData.orderType = orderType;
     if (tax !== undefined) orderData.tax = tax;
     if (discount !== undefined) orderData.discount = discount;
@@ -70,12 +101,43 @@ exports.createOrder = async (req, res) => {
     if (kotGenerated !== undefined) orderData.kotGenerated = kotGenerated;
     if (paymentStatus) orderData.paymentStatus = paymentStatus;
 
+    console.log("Final order data before saving:", JSON.stringify(orderData, null, 2));
+
     const order = new Order(orderData);
-    await order.save();
+    console.log("Order instance created, attempting to save...");
+    
+    const savedOrder = await order.save();
+    console.log("Order saved successfully:", savedOrder._id);
 
     await order.populate("customerId", "name email");
     if (order.deliveryId) {
       await order.populate("deliveryId", "deliveryPerson status");
+    }
+
+    // Deduct inventory for all items in the order
+    try {
+      const { deductInventory } = require("../services/InventoryService");
+      
+      const inventoryResult = await deductInventory(
+        items, 
+        orderData.restaurantId, 
+        savedOrder._id, 
+        'order'
+      );
+      
+      if (!inventoryResult.success) {
+        console.error("Inventory deduction failed for order:", inventoryResult.errors);
+        // You might want to handle this case differently based on business requirements
+      }
+      
+      if (inventoryResult.warnings.length > 0) {
+        console.warn("Inventory deduction warnings for order:", inventoryResult.warnings);
+      }
+      
+    } catch (inventoryError) {
+      console.error("Error deducting inventory for order:", inventoryError);
+      // Don't fail the order if inventory deduction fails
+      // You might want to handle this differently based on business requirements
     }
 
     // Credit reward points to customer if customerId is provided
@@ -111,14 +173,33 @@ exports.createOrder = async (req, res) => {
       }
     }
 
+    console.log("=== ORDER CREATION COMPLETED ===");
     res.status(201).json({
       success: true,
       message: "Order created successfully",
-      data: order,
-      order: order // Add this for frontend compatibility
+      data: savedOrder,
+      order: savedOrder // Add this for frontend compatibility
     });
   } catch (err) {
+    console.error("=== ORDER CREATION FAILED ===");
     console.error("Error creating order:", err);
+    console.error("Error details:", {
+      name: err.name,
+      message: err.message,
+      code: err.code,
+      errors: err.errors
+    });
+    
+    // Handle specific validation errors
+    if (err.name === 'ValidationError') {
+      const validationErrors = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: validationErrors
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -129,10 +210,27 @@ exports.createOrder = async (req, res) => {
 
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find()
+    console.log("=== FETCHING ALL ORDERS ===");
+    console.log("User from auth middleware:", req.user);
+    
+    // Get restaurantId from query or use authenticated user's ID
+    const restaurantId = req.query.restaurantId || req.user?._id;
+    
+    let query = {};
+    if (restaurantId) {
+      query.restaurantId = restaurantId;
+    }
+    
+    console.log("Query filter:", query);
+    
+    const orders = await Order.find(query)
       .populate("customerId", "name email address")
       .populate("deliveryId", "deliveryPerson status")
+      .populate("restaurantId", "username email")
+      .populate("userId", "username email")
       .sort({ createdAt: -1 });
+    
+    console.log(`Found ${orders.length} orders`);
     
     // Update orders that don't have customerAddress but have customerId with address
     for (let order of orders) {
@@ -145,9 +243,11 @@ exports.getAllOrders = async (req, res) => {
     res.json({
       success: true,
       data: orders,
-      orders: orders
+      orders: orders,
+      count: orders.length
     });
   } catch (err) {
+    console.error("Error fetching orders:", err);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -261,5 +361,47 @@ exports.deleteOrder = async (req, res) => {
     res.json({ success: true, message: "Order deleted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+};
+
+// Test endpoint to check database connection and order collection
+exports.testOrderConnection = async (req, res) => {
+  try {
+    console.log("=== TESTING ORDER CONNECTION ===");
+    
+    // Test database connection
+    const mongoose = require('mongoose');
+    const connectionState = mongoose.connection.readyState;
+    console.log("Mongoose connection state:", connectionState);
+    
+    // Test order collection access
+    const orderCount = await Order.countDocuments();
+    console.log("Total orders in collection:", orderCount);
+    
+    // Get a sample order
+    const sampleOrder = await Order.findOne().sort({ createdAt: -1 });
+    console.log("Latest order:", sampleOrder ? sampleOrder._id : "No orders found");
+    
+    res.json({
+      success: true,
+      message: "Database connection test successful",
+      data: {
+        connectionState: connectionState,
+        totalOrders: orderCount,
+        latestOrder: sampleOrder ? {
+          id: sampleOrder._id,
+          orderId: sampleOrder.orderId,
+          status: sampleOrder.status,
+          createdAt: sampleOrder.createdAt
+        } : null
+      }
+    });
+  } catch (err) {
+    console.error("Database connection test failed:", err);
+    res.status(500).json({
+      success: false,
+      message: "Database connection test failed",
+      error: err.message
+    });
   }
 };

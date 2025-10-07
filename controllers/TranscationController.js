@@ -218,6 +218,32 @@ exports.createTransaction = async (req, res) => {
 // >>>>>>> Stashed changes
     const savedTransaction = await newTransaction.save();
     
+    // Deduct inventory for all items in the transaction
+    try {
+      const { deductInventory } = require("../services/InventoryService");
+      
+      const inventoryResult = await deductInventory(
+        processedItems, 
+        restaurantId, 
+        savedTransaction.transactionId, 
+        'transaction'
+      );
+      
+      if (!inventoryResult.success) {
+        console.error("Inventory deduction failed:", inventoryResult.errors);
+        // You might want to handle this case differently based on business requirements
+      }
+      
+      if (inventoryResult.warnings.length > 0) {
+        console.warn("Inventory deduction warnings:", inventoryResult.warnings);
+      }
+      
+    } catch (inventoryError) {
+      console.error("Error deducting inventory:", inventoryError);
+      // Don't fail the transaction if inventory deduction fails
+      // You might want to handle this differently based on business requirements
+    }
+    
     // Credit reward points to customer if customerId is provided
     if (customerId) {
       try {
