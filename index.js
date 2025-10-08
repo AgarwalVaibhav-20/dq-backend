@@ -29,6 +29,7 @@ const loginActivity = require('./routes/loginActivity.js')
 const settingsRoute = require('./routes/settingsRoute.js')
 const taxRoute = require('./routes/taxRoute.js')
 const memberRoute = require('./routes/memberRoutes.js')
+const customerSettingsRoutes = require('./routes/customerSettings.js');
 dotenv.config();
 
 const app = express();
@@ -102,6 +103,7 @@ app.use("/api/coupon", coupen)
 app.use("/api/login-activity", loginActivity)
 app.use("/api/settings", settingsRoute)
 app.use("/api/tax", taxRoute)
+app.use("/api/customer-settings", customerSettingsRoutes);
 app.use(uploadRoute);
 // 1. COMMENT this (for prod)
 app.listen(PORT, () => {

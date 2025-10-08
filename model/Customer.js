@@ -29,6 +29,10 @@ const customerSchema = new mongoose.Schema(
     anniversary: {
       type: Date,
     },
+    corporate: {
+      type: Boolean,
+      default: false,
+    },
     frequency: {
       type: Number,
       default: 0,

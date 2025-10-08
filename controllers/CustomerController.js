@@ -3,7 +3,7 @@ const Customer = require("../model/Customer");
 
 exports.createCustomer = async (req, res) => {
   try {
-    const { name, email, address, phoneNumber, restaurantId, birthday, anniversary } = req.body;
+    const { name, email, address, phoneNumber, restaurantId, birthday, anniversary, corporate } = req.body;
 
     if (!name || !email || !restaurantId) {
       return res.status(400).json({ message: "Name, email and restaurantId are required" });
@@ -21,7 +21,9 @@ exports.createCustomer = async (req, res) => {
       phoneNumber, 
       restaurantId, 
       birthday, 
-      anniversary
+      anniversary,
+      corporate
+
     });
     await newCustomer.save();
 
