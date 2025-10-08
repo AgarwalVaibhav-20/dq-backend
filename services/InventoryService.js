@@ -105,7 +105,12 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
           
           console.log(`Deducting stock: ${stockItem.stockId} - Quantity needed: ${totalQuantityNeeded} ${stockItem.unit}`);
           
-          // Find and update the inventory item
+          // ✅ CORRECT FLOW: Transaction → Menu → Inventory
+          // 1. Transaction items[].itemId → Menu collection
+          // 2. Menu stockItems[].stockId → Inventory collection  
+          // 3. Inventory collection में actual stock deduction
+          
+          // Find and update the inventory item using stockId from Menu
           const inventoryItem = await Inventory.findOne({
             _id: stockItem.stockId,
             restaurantId: restaurantId,
@@ -136,7 +141,7 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
             // Round the deducted quantity to avoid floating point issues
             const roundedDeductedQuantity = roundToDecimals(convertedQuantityNeeded, 2);
             
-            // Deduct the quantity from inventory
+            // ✅ ACTUAL STOCK DEDUCTION in Inventory collection
             await Inventory.findByIdAndUpdate(
               stockItem.stockId,
               { 
@@ -163,7 +168,6 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
             const warning = `Insufficient stock for ${inventoryItem.itemName}. Available: ${currentStock} ${inventoryItem.unit}, Needed: ${convertedQuantityNeeded} ${inventoryItem.unit}`;
             results.warnings.push(warning);
             console.warn(warning);
-            // You might want to handle this case differently - maybe throw an error or log it
           }
         }
       } catch (itemError) {
@@ -218,6 +222,9 @@ const checkInventoryAvailability = async (items, restaurantId) => {
       
       for (const stockItem of menuItem.stockItems) {
         const totalQuantityNeeded = stockItem.quantity * item.quantity;
+        
+        // ✅ CORRECT FLOW: Transaction → Menu → Inventory
+        // Check actual stock availability in Inventory collection
         
         const inventoryItem = await Inventory.findOne({
           _id: stockItem.stockId,

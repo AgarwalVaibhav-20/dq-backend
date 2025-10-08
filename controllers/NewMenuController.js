@@ -252,6 +252,7 @@ exports.uploadMiddleware = upload.single("itemImage");
 exports.getMenuItems = async (req, res) => {
   try {
     const { restaurantId } = req.query;
+    console.log("🔍 Backend getMenuItems called with restaurantId:", restaurantId);
 
     // Build query filter
     let filter = {};
@@ -259,9 +260,21 @@ exports.getMenuItems = async (req, res) => {
       filter.restaurantId = restaurantId;
     }
 
+    console.log("🔍 Database filter:", filter);
+
     const menuItems = await Menu.find(filter)
       .populate("categoryId", "categoryName")
       .sort({ createdAt: -1 });
+
+    console.log("🔍 Database query result:", {
+      count: menuItems.length,
+      items: menuItems.map(item => ({
+        id: item._id,
+        name: item.itemName,
+        status: item.status,
+        restaurantId: item.restaurantId
+      }))
+    });
 
     res.status(200).json(menuItems);
   } catch (error) {
