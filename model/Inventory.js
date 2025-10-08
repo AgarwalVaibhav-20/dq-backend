@@ -96,6 +96,7 @@ inventorySchema.virtual("supplier", {
   justOne: false,
 });
 
+
 const Inventory = mongoose.model("Inventory", inventorySchema);
 module.exports = Inventory;
 

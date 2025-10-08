@@ -30,6 +30,11 @@ const settingsRoute = require('./routes/settingsRoute.js')
 const taxRoute = require('./routes/taxRoute.js')
 const memberRoute = require('./routes/memberRoutes.js')
 const customerSettingsRoutes = require('./routes/customerSettings.js');
+const inventoryStockSettingsRoutes = require('./routes/inventoryStockSettingsRoute.js');
+const lowStockRoutes = require('./routes/lowStockRoute.js');
+const emailTestRoutes = require('./routes/emailTestRoute.js');
+const { startCronJobs } = require('./services/CronJobService');
+const { initializeAutoEmailService } = require('./services/AutoEmailService');
 dotenv.config();
 
 const app = express();
@@ -104,7 +109,16 @@ app.use("/api/login-activity", loginActivity)
 app.use("/api/settings", settingsRoute)
 app.use("/api/tax", taxRoute)
 app.use("/api/customer-settings", customerSettingsRoutes);
+app.use("/api/inventory-stock-settings", inventoryStockSettingsRoutes);
+app.use("/api/low-stock", lowStockRoutes);
+app.use("/api/email-test", emailTestRoutes);
 app.use(uploadRoute);
+// Start cron jobs
+startCronJobs();
+
+// Initialize auto email service
+initializeAutoEmailService();
+
 // 1. COMMENT this (for prod)
 app.listen(PORT, () => {
   console.log(`🚀 Server started at http://localhost:${PORT}`);
