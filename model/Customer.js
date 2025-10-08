@@ -7,6 +7,15 @@ const customerSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    membershipId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Member',
+      default: null
+    },
+    membershipName: {  // ADD THIS
+      type: String,
+      default: null
+    },
     email: {
       type: String,
       lowercase: true,
@@ -58,7 +67,7 @@ const customerSchema = new mongoose.Schema(
 );
 
 // Pre-save middleware to automatically determine customer type
-customerSchema.pre('save', function(next) {
+customerSchema.pre('save', function (next) {
   if (this.isModified('frequency') || this.isModified('totalSpent')) {
     if (this.frequency === 0) {
       this.customerType = 'FirstTimer';

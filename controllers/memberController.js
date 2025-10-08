@@ -2,21 +2,19 @@ const Member = require("../model/Member");
 
 exports.getAllMembers = async (req, res) => {
   try {
-    const members = await Member.find().populate("customerId", "name email");
+    const members = await Member.find();
     res.status(200).json(members);
   } catch (error) {
-    console.log(error , "erroring")
-    console.error(error)
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Error fetching members." });
   }
 };
 
 exports.getMemberById = async (req, res) => {
   try {
-    const member = await Member.findById(req.params.id).populate("customerId", "name email");
+    const member = await Member.findById(req.params.id);
     if (!member) return res.status(404).json({ message: "Member not found" });
     res.status(200).json(member);
-    
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -25,9 +23,9 @@ exports.getMemberById = async (req, res) => {
 exports.createMember = async (req, res) => {
   try {
     const {
-      customerName,
-      customerId,
+      minSpend,
       membershipName,
+      discountType, // ✅ FIXED
       discount,
       startDate,
       expirationDate,
@@ -35,14 +33,15 @@ exports.createMember = async (req, res) => {
       restaurantId,
     } = req.body;
 
-    if (!customerName || !customerId || !membershipName || !discount || !expirationDate) {
+    // Validate required fields
+    if (!minSpend || !membershipName || !discount || !expirationDate) {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
     const newMember = new Member({
-      customerName,
-      customerId,
+      minSpend,
       membershipName,
+      discountType, // ✅ FIXED
       discount,
       startDate: startDate || Date.now(),
       expirationDate,
@@ -59,12 +58,39 @@ exports.createMember = async (req, res) => {
 
 exports.updateMember = async (req, res) => {
   try {
-    const updatedMember = await Member.findByIdAndUpdate(req.params.id, req.body, {
+    // Explicitly define the fields that can be updated for security and clarity
+    const {
+      minSpend,
+      membershipName,
+      discountType,
+      discount,
+      startDate,
+      expirationDate,
+      notes,
+      status
+    } = req.body;
+
+    const updateData = {
+      minSpend,
+      membershipName,
+      discountType,
+      discount,
+      startDate,
+      expirationDate,
+      notes,
+      status
+    };
+
+
+    const updatedMember = await Member.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
     });
 
-    if (!updatedMember) return res.status(404).json({ message: "Member not found" });
+    if (!updatedMember) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+
     res.status(200).json(updatedMember);
   } catch (error) {
     res.status(500).json({ message: error.message });

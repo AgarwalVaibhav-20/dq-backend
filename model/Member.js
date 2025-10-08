@@ -1,26 +1,26 @@
 const mongoose = require("mongoose");
 
 const memberSchema = new mongoose.Schema({
-  customerName: {
-    type: String,
+  minSpend: {
+    type: Number,
     required: true,
-    trim: true,
-  },
-  customerId: {
-    type: mongoose.Schema.Types.ObjectId, // Reference to a Customer collection
-    required: true,
-    ref: "Customer",
   },
   membershipName: {
     type: String,
     required: true,
     trim: true,
   },
+  discountType: {
+    type: String,
+    enum: ['percentage', 'fixed'],
+    required: true,
+    default: 'percentage',
+  },
   discount: {
-    type: Number, // Discount percentage, e.g., 10 for 10%
+    type: Number, 
     required: true,
     min: 0,
-    max: 100,
+    
   },
   status: {
     type: String,
@@ -37,11 +37,11 @@ const memberSchema = new mongoose.Schema({
   },
   visitsCount: {
     type: Number,
-    default: 0, // Number of times the member has visited
+    default: 0, 
   },
   notes: {
     type: String,
-    trim: true, // Any special notes about the member
+    trim: true, 
   },
   createdAt: {
     type: Date,
@@ -53,10 +53,8 @@ const memberSchema = new mongoose.Schema({
   },
 });
 
-// Pre-save hook to update updatedAt
 memberSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
-  // Automatically expire membership if expirationDate passed
   if (this.expirationDate < Date.now()) {
     this.status = "expired";
   }

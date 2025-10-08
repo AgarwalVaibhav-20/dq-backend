@@ -3,7 +3,7 @@ const Customer = require("../model/Customer");
 
 exports.createCustomer = async (req, res) => {
   try {
-    const { name, email, address, phoneNumber, restaurantId, birthday, anniversary, corporate } = req.body;
+    const { name, email, address, phoneNumber, restaurantId, birthday, anniversary, corporate, membershipId, membershipName } = req.body;
 
     if (!name || !email || !restaurantId) {
       return res.status(400).json({ message: "Name, email and restaurantId are required" });
@@ -14,14 +14,16 @@ exports.createCustomer = async (req, res) => {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    const newCustomer = new Customer({ 
-      name, 
-      email, 
-      address, 
-      phoneNumber, 
-      restaurantId, 
-      birthday, 
+    const newCustomer = new Customer({
+      name,
+      email,
+      address,
+      phoneNumber,
+      restaurantId,
+      birthday,
       anniversary,
+      membershipId,
+      membershipName,
       corporate
 
     });
@@ -54,7 +56,7 @@ exports.getAllCustomers = async (req, res) => {
 exports.getAllCustomersForReservation = async (req, res) => {
   try {
     console.log("🔍 Fetching ALL customers for reservation dropdown...");
-    const customers = await Customer.find({});
+    const customers = await Customer.find({}).populate('membershipId');;
     console.log("📊 Total customers found:", customers.length);
     res.json(customers);
   } catch (err) {
@@ -79,18 +81,30 @@ exports.getCustomerById = async (req, res) => {
 exports.updateCustomer = async (req, res) => {
   try {
     const updates = req.body;
-    if (updates.password) delete updates.password; // password should be updated separately
+    const customerId = req.params.id;
+
+    // Prevent sensitive updates
+    delete updates.password;
+    delete updates.role;
 
     const customer = await Customer.findOneAndUpdate(
-      { _id: req.params.id, role: "Customer" },
+      { _id: customerId },
       updates,
       { new: true }
     ).select("-password -verifyOTP -otpExpiry");
 
-    if (!customer) return res.status(404).json({ message: "Customer not found" });
-    res.json({ message: "Customer updated successfully", customer });
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Customer updated successfully",
+      customer,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error updating customer:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 };
 
@@ -131,9 +145,9 @@ exports.getCustomersByType = async (req, res) => {
     const { restaurantId, customerType } = req.params;
     // Decode URL-encoded customer type (e.g., "Lost%20Customer" -> "Lost Customer")
     const decodedCustomerType = decodeURIComponent(customerType);
-    const customers = await Customer.find({ 
-      restaurantId, 
-      customerType: decodedCustomerType 
+    const customers = await Customer.find({
+      restaurantId,
+      customerType: decodedCustomerType
     });
     res.json(customers);
   } catch (err) {
@@ -146,7 +160,7 @@ exports.updateCustomerFrequency = async (req, res) => {
   try {
     const { id } = req.params;
     const { frequency, totalSpent } = req.body;
-    
+
     const customer = await Customer.findByIdAndUpdate(
       id,
       { frequency, totalSpent },
@@ -157,9 +171,9 @@ exports.updateCustomerFrequency = async (req, res) => {
       return res.status(404).json({ message: "Customer not found" });
     }
 
-    res.json({ 
-      message: "Customer frequency updated successfully", 
-      customer 
+    res.json({
+      message: "Customer frequency updated successfully",
+      customer
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -170,20 +184,20 @@ exports.updateCustomerFrequency = async (req, res) => {
 exports.calculateCustomerTotalSpent = async (req, res) => {
   try {
     const Order = require("../model/Order");
-    
+
     // Get all customers
     const customers = await Customer.find({});
     let updatedCount = 0;
 
     for (const customer of customers) {
       // Calculate total spent from orders
-      const orders = await Order.find({ 
+      const orders = await Order.find({
         customerId: customer._id,
         status: { $in: ['completed', 'served'] } // Only count completed/served orders
       });
 
       const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-      
+
       // Update customer's totalSpent
       await Customer.findByIdAndUpdate(
         customer._id,
@@ -217,13 +231,13 @@ exports.calculateSingleCustomerTotalSpent = async (req, res) => {
     }
 
     // Calculate total spent from orders
-    const orders = await Order.find({ 
+    const orders = await Order.find({
       customerId: customerId,
       status: { $in: ['completed', 'served'] } // Only count completed/served orders
     });
 
     const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-    
+
     // Update customer's totalSpent
     const updatedCustomer = await Customer.findByIdAndUpdate(
       customerId,

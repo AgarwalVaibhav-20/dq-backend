@@ -7,7 +7,7 @@ router.get("/customer/all", CustomerController.getAllCustomersForReservation);
 router.get("/customer/type/:restaurantId/:customerType", CustomerController.getCustomersByType);
 router.get("/customer/:restaurantId", CustomerController.getAllCustomers);
 router.get("/customer/:id",CustomerController.getCustomerById);
-router.put("/customer/:id",CustomerController.updateCustomer);
+router.put("/customer/update/:id",CustomerController.updateCustomer);
 router.delete("/customer/delete/:id", CustomerController.deleteCustomer);
 router.put("/customer/frequency/:id", CustomerController.updateCustomerFrequency);
 router.post("/customer/calculate-total-spent", CustomerController.calculateCustomerTotalSpent);
