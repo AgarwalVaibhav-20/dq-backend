@@ -34,7 +34,7 @@ exports.createMember = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!minSpend || !membershipName || !discount || !expirationDate) {
+    if (!minSpend || !membershipName || !discount ) { //|| !expirationDate
       return res.status(400).json({ message: "Required fields missing" });
     }
 

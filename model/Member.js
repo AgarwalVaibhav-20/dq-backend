@@ -33,7 +33,6 @@ const memberSchema = new mongoose.Schema({
   },
   expirationDate: {
     type: Date,
-    required: true,
   },
   visitsCount: {
     type: Number,
