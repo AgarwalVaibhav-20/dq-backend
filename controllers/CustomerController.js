@@ -39,8 +39,6 @@ exports.createCustomer = async (req, res) => {
   }
 };
 
-
-
 // 📌 Get All Customers
 exports.getAllCustomers = async (req, res) => {
   try {
