@@ -1,7 +1,11 @@
 const mongoose = require("mongoose");
-const categorySchema = new mongoose.Schema(
 
+const categorySchema = new mongoose.Schema(
   {
+    restaurantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     categoryName: {
       type: String,
       required: true,
@@ -11,25 +15,21 @@ const categorySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    restaurantId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    },
     size: {
       type: String,
     },
     basePrice: {
       type: Number,
       min: 0,
-      default: null
+      default: null,
     },
     description: {
-      type: String
+      type: String,
     },
     isDeleted: {
       type: Boolean,
-      default: false
-    }
+      default: false,
+    },
   },
   { timestamps: true }
 );

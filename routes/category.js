@@ -79,20 +79,23 @@ router.post(
   upload.single("categoryImage"),
   async (req, res) => {
     try {
-      const restaurantId = req.user.restaurantId;
-      const { categoryName, basePrice, description, size } = req.body;
+      const { restaurantId, categoryName, basePrice, description, size } = req.body;
+
+      if (!restaurantId) {
+        return res.status(400).json({ message: "restaurantId is required" });
+      }
 
       if (!categoryName || !req.file) {
         return res.status(400).json({ message: "categoryName and categoryImage are required" });
       }
 
-      // Upload buffer to Cloudinary
+      // Upload image to Cloudinary
       const imageUrl = await uploadToCloudinary(req.file.buffer, "category");
 
       const newCategory = new Category({
-        categoryName,
-        categoryImage: imageUrl, // Use Cloudinary URL
         restaurantId,
+        categoryName,
+        categoryImage: imageUrl,
         basePrice,
         description,
         size,
@@ -108,68 +111,24 @@ router.post(
   }
 );
 
-// ---------- Multer setup ----------
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     const dir = './uploads/categories';
-//     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-//     cb(null, dir);
-//   },
-//   filename: (req, file, cb) => {
-//     cb(null, Date.now() + path.extname(file.originalname));
-//   },
-// });
 
-// const upload = multer({ storage });
-
-// // ---------- CREATE CATEGORY ----------
-// router.post(
-//   '/category',
-//   authMiddleware,
-//   upload.single('categoryImage'),
-//   async (req, res) => {
-//     try {
-//       const restaurantId = req.user.restaurantId;
-//       const { categoryName, basePrice, description, size } = req.body;
-
-//       console.log("Request Body:", req.body);
-//       console.log("Uploaded File:", req.file);
-
-//       if (!categoryName || !req.file) {
-//         return res.status(400).json({ message: 'categoryName and categoryImage are required' });
-//       }
-
-//       const categoryImage = `/uploads/categories/${req.file.filename}`;
-
-//       const newCategory = new Category({
-//         categoryName,
-//         categoryImage,
-//         restaurantId,
-//         basePrice,
-//         description,
-//         size,
-//       });
-
-//       await newCategory.save();
-
-//       console.log("New Category Saved:", newCategory);
-//       res.status(201).json(newCategory);
-//     } catch (err) {
-//       console.error("Error creating category:", err);
-//       res.status(500).json({ message: err.message || 'Server error' });
-//     }
-//   }
-// );
-
+//fetching category
 router.get('/categories', async (req, res) => {
   try {
-    const categories = await Category.find({ isDeleted: false });
+    const { restaurantId } = req.query; // ✅ take from query
+    if (!restaurantId) {
+      return res.status(400).json({ message: 'restaurantId is required' });
+    }
+
+    const categories = await Category.find({ isDeleted: false, restaurantId });
     res.json({ data: categories });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
 // ---------- GET CATEGORY BY ID ----------
 router.get('/category/:id', async (req, res) => {
   try {

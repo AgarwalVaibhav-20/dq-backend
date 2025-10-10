@@ -209,50 +209,50 @@ exports.createTransaction = async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-// <<<<<<< Updated upstream
+    // <<<<<<< Updated upstream
     // console.log()
     // console.log("Incoming customerId:", customerId);
 
 
-// =======
-// >>>>>>> Stashed changes
+    // =======
+    // >>>>>>> Stashed changes
     const savedTransaction = await newTransaction.save();
-    
+
     // Deduct inventory for all items in the transaction
     try {
       const { deductInventory } = require("../services/InventoryService");
-      
+
       const inventoryResult = await deductInventory(
-        processedItems, 
-        restaurantId, 
-        savedTransaction.transactionId, 
+        processedItems,
+        restaurantId,
+        savedTransaction.transactionId,
         'transaction'
       );
-      
+
       if (!inventoryResult.success) {
         console.error("Inventory deduction failed:", inventoryResult.errors);
         // You might want to handle this case differently based on business requirements
       }
-      
+
       if (inventoryResult.warnings.length > 0) {
         console.warn("Inventory deduction warnings:", inventoryResult.warnings);
       }
-      
+
     } catch (inventoryError) {
       console.error("Error deducting inventory:", inventoryError);
       // Don't fail the transaction if inventory deduction fails
       // You might want to handle this differently based on business requirements
     }
-    
+
     // Credit reward points to customer if customerId is provided
     if (customerId) {
       try {
         const Menu = require("../model/Menu");
         const Customer = require("../model/Customer");
-        
+
         // Calculate total reward points from all items in the transaction
         let totalRewardPoints = 0;
-        
+
         for (const item of processedItems) {
           // Find the menu item to get its reward points
           const menuItem = await Menu.findById(item.itemId);
@@ -260,7 +260,7 @@ exports.createTransaction = async (req, res) => {
             totalRewardPoints += menuItem.rewardPoints * item.quantity;
           }
         }
-        
+
         // Update customer's earned points if there are reward points to credit
         if (totalRewardPoints > 0) {
           await Customer.findByIdAndUpdate(
@@ -268,7 +268,7 @@ exports.createTransaction = async (req, res) => {
             { $inc: { earnedPoints: totalRewardPoints } },
             { new: true }
           );
-          
+
           console.log(`Credited ${totalRewardPoints} reward points to customer ${customerId}`);
         }
       } catch (rewardError) {
@@ -276,7 +276,7 @@ exports.createTransaction = async (req, res) => {
         // Don't fail the transaction if reward points fail
       }
     }
-    
+
     res.status(201).json({
       success: true,
       message: "Transaction created successfully",
@@ -295,23 +295,58 @@ exports.createTransaction = async (req, res) => {
 // ---------------- GET ALL TRANSACTIONS ----------------
 exports.getAllTransactions = async (req, res) => {
   try {
+    console.log('=== BACKEND: getAllTransactions CALLED ===');
+
+    // ✅ Get restaurantId from query or from user context
+    const restaurantId = req.query.restaurantId || req.userId;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required",
+      });
+    }
+
+    // ✅ Filter by restaurantId and exclude deleted ones
     const transactions = await Transaction.find({
+      restaurantId,
       isDeleted: { $ne: true },
     }).sort({ createdAt: -1 });
+
     res.status(200).json({
       success: true,
       data: transactions,
-      count: transactions.length
+      count: transactions.length,
     });
   } catch (err) {
     console.error("Get All Transactions Error:", err);
     res.status(500).json({
       success: false,
       message: "Server error",
-      error: err.message
+      error: err.message,
     });
   }
 };
+
+// exports.getAllTransactions = async (req, res) => {
+//   try {
+//     const transactions = await Transaction.find({
+//       isDeleted: { $ne: true },
+//     }).sort({ createdAt: -1 });
+//     res.status(200).json({
+//       success: true,
+//       data: transactions,
+//       count: transactions.length
+//     });
+//   } catch (err) {
+//     console.error("Get All Transactions Error:", err);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: err.message
+//     });
+//   }
+// };
 
 // ---------------- GET TRANSACTIONS BY RESTAURANT ----------------
 exports.getTransactionsByRestaurant = async (req, res) => {

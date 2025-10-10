@@ -3,17 +3,26 @@ const Supplier = require("../model/Supplier");
 // Get all suppliers
 exports.getSuppliers = async (req, res) => {
   try {
-    const suppliers = await Supplier.find().populate("inventories");
+    const restaurantId = req.query.restaurantId || req.userId;
+
+    if (!restaurantId) {
+      return res.status(400).json({ message: "Restaurant ID is required" });
+    }
+
+    const suppliers = await Supplier.find({ restaurantId })
+      .populate("inventories");
+
     res.json({ success: true, data: suppliers });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 // Create new supplier
 exports.createSupplier = async (req, res) => {
   try {
-    const { supplierName, email, phoneNumber, rawItem , restaurantId , inventoryId } = req.body;
+    const { supplierName, email, phoneNumber, rawItem, restaurantId, inventoryId } = req.body;
 
     // Validation
     if (!supplierName || !phoneNumber) {
@@ -68,7 +77,7 @@ exports.updateSupplier = async (req, res) => {
 // controllers/supplierController.js
 exports.deleteSupplier = async (req, res) => {
   try {
-   const restaurantId = req.user.restaurantId;
+    const restaurantId = req.user.restaurantId;
 
     const supplier = await Supplier.findByIdAndDelete(restaurantId);
 

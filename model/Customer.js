@@ -30,7 +30,9 @@ const customerSchema = new mongoose.Schema(
       trim: true,
     },
     restaurantId: {
-      type: String
+      type: String,
+      ref: "User",
+      requuired: true,
     },
     birthday: {
       type: Date,

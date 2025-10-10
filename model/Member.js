@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
 const memberSchema = new mongoose.Schema({
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    // required: true
+  },
   minSpend: {
     type: Number,
     required: true,
@@ -17,10 +22,10 @@ const memberSchema = new mongoose.Schema({
     default: 'percentage',
   },
   discount: {
-    type: Number, 
+    type: Number,
     required: true,
     min: 0,
-    
+
   },
   status: {
     type: String,
@@ -36,11 +41,11 @@ const memberSchema = new mongoose.Schema({
   },
   visitsCount: {
     type: Number,
-    default: 0, 
+    default: 0,
   },
   notes: {
     type: String,
-    trim: true, 
+    trim: true,
   },
   createdAt: {
     type: Date,

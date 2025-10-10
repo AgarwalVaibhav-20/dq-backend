@@ -139,6 +139,7 @@ module.exports = {
         { expiresIn: "7d" }
       );
 
+      //  ye comment kia h sahi chal rha tha
       await sendEmail(
         user.email,
         "Verify Your Account - OTP",
@@ -226,6 +227,7 @@ module.exports = {
       await user.save();
 
       // TODO: send OTP via nodemailer here
+      // ye comment karr dia h sahi chal rha tha
       await sendEmail(
         user.email,
         "Forgot password - OTP",

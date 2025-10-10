@@ -2,7 +2,8 @@ const Member = require("../model/Member");
 
 exports.getAllMembers = async (req, res) => {
   try {
-    const members = await Member.find();
+     const restaurantId = req.query.restaurantId || req.userId;
+    const members = await Member.find({restaurantId});
     // const members = await Member.find();
     res.status(200).json(members);
   } catch (error) {
@@ -26,36 +27,38 @@ exports.createMember = async (req, res) => {
     const {
       minSpend,
       membershipName,
-      discountType, // ✅ FIXED
+      discountType,
       discount,
       startDate,
       expirationDate,
       notes,
-      restaurantId,
     } = req.body;
 
-    // Validate required fields
-    if (!minSpend || !membershipName || !discount ) { //|| !expirationDate
+    const restaurantId = req.user?._id || req.body.restaurantId; // ✅ handle both
+
+    if (!minSpend || !membershipName || !discount) {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
     const newMember = new Member({
       minSpend,
       membershipName,
-      discountType, // ✅ FIXED
+      discountType,
       discount,
       startDate: startDate || Date.now(),
       expirationDate,
       notes,
-      restaurantId,
+      restaurantId, // ✅ always included
     });
 
     const savedMember = await newMember.save();
     res.status(201).json(savedMember);
   } catch (error) {
+    console.log(error, "membership error");
     res.status(500).json({ message: error.message });
   }
 };
+
 
 exports.updateMember = async (req, res) => {
   try {

@@ -26,7 +26,11 @@ const menuSchema = new mongoose.Schema(
       trim: true,
     },
 
-    restaurantId: { type: String, required: true },
+    restaurantId: {
+      type: String,
+      ref: "User",
+      required: true
+    },
 
     stock: { type: Number, default: 0, min: 0 },
     status: { type: Number, default: 1, enum: [0, 1] },

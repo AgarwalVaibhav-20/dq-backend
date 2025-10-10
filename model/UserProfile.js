@@ -95,6 +95,6 @@ const userProfileSchema = new mongoose.Schema(
   }
 );
 
-const UserProfile = mongoose.model("UserProfile", userProfileSchema , "UserProfile");
+const UserProfile = mongoose.model("UserProfile", userProfileSchema, "UserProfile");
 
 module.exports = UserProfile;

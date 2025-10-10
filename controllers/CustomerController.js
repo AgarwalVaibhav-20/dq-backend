@@ -42,19 +42,28 @@ exports.createCustomer = async (req, res) => {
 // 📌 Get All Customers
 exports.getAllCustomers = async (req, res) => {
   try {
-    const { restaurantId } = req.params;
-    const customers = await Customer.find({ restaurantId });
-    res.json(customers);
+    const { restaurantId } = req.query;
+    const filter = restaurantId ? { restaurantId } : {};
+    const customers = await Customer.find(filter)
+
+    res.status(200).json({
+      success: true,
+      count: customers.length,
+      data: customers,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("❌ Error fetching customers:", err);
+    res.status(500).json({ success: false, message: err.message || 'Server error' });
   }
 };
+
 
 // 📌 Get ALL Customers (for reservation dropdown)
 exports.getAllCustomersForReservation = async (req, res) => {
   try {
     console.log("🔍 Fetching ALL customers for reservation dropdown...");
-    const customers = await Customer.find({}).populate('membershipId');;
+     const { restaurantId } = req.query;
+    const customers = await Customer.find({restaurantId}).populate('membershipId');;
     console.log("📊 Total customers found:", customers.length);
     res.json(customers);
   } catch (err) {

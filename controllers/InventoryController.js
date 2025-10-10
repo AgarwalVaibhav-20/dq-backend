@@ -222,12 +222,12 @@ exports.addInventory = async (req, res) => {
       };
 
       existingInventory.suppliers.push(newSupplier);
-      
+
       // Update total stock with proper rounding using utility functions
       existingInventory.stock.quantity = safeAdd(existingInventory.stock.quantity, Number(stock.quantity));
       existingInventory.stock.amount = safeAdd(existingInventory.stock.amount, Number(stock.amount));
       existingInventory.stock.total = safeMultiply(existingInventory.stock.quantity, existingInventory.stock.amount);
-      
+
       // ✅ Calculate totalQuantity from all suppliers with proper rounding
       existingInventory.stock.totalQuantity = roundToDecimals(existingInventory.suppliers.reduce((total, supplier) => {
         return safeAdd(total, supplier.quantity || 0);
@@ -245,7 +245,7 @@ exports.addInventory = async (req, res) => {
       const quantity = roundToDecimals(Number(stock.quantity));
       const amount = roundToDecimals(Number(stock.amount));
       const total = safeMultiply(quantity, amount);
-      
+
       const newInventory = new Inventory({
         itemName: itemName.trim().toLowerCase(),
         stock: {
@@ -286,15 +286,27 @@ exports.addInventory = async (req, res) => {
 exports.getInventory = async (req, res) => {
   try {
     console.log('=== BACKEND API CALLED ===');
-    const items = await Inventory.find({ isDeleted: { $ne: true } }).populate({
+
+    const restaurantId = req.query.restaurantId || req.userId;
+
+    if (!restaurantId) {
+      return res.status(400).json({ message: "Restaurant ID is required" });
+    }
+
+    // ✅ Filter by restaurantId + exclude deleted
+    const items = await Inventory.find({
+      restaurantId,
+      isDeleted: { $ne: true },
+    }).populate({
       path: "suppliers.supplierId",
       model: "Supplier",
-      select: "supplierName email phoneNumber rawItem"
+      select: "supplierName email phoneNumber rawItem",
     });
+
     console.log('Raw items from database:', items.length);
-    
-    // ✅ FIXED: Now each item has suppliers array, no need to group
-    const processedItems = items.map(item => ({
+
+    // ✅ Process the inventory data
+    const processedItems = items.map((item) => ({
       _id: item._id,
       itemName: item.itemName,
       unit: item.unit,
@@ -303,25 +315,68 @@ exports.getInventory = async (req, res) => {
         quantity: roundToDecimals(Number(item.stock?.quantity || 0)),
         amount: roundToDecimals(Number(item.stock?.amount || 0)),
         total: roundToDecimals(Number(item.stock?.total || 0)),
-        totalQuantity: roundToDecimals(Number(item.stock?.totalQuantity || 0)), // ✅ Include totalQuantity with rounding
-        purchasedAt: item.stock?.purchasedAt
+        totalQuantity: roundToDecimals(Number(item.stock?.totalQuantity || 0)),
+        purchasedAt: item.stock?.purchasedAt,
       },
       suppliers: item.suppliers || [],
       isDeleted: item.isDeleted,
       createdAt: item.createdAt,
-      updatedAt: item.updatedAt
+      updatedAt: item.updatedAt,
     }));
-    
+
     console.log('=== SENDING RESPONSE ===');
     console.log('Processed items count:', processedItems.length);
     console.log('Sample item:', processedItems[0]);
-    
+
     res.status(200).json(processedItems);
   } catch (err) {
     console.error('Error in getInventory:', err);
-    res.status(500).json({ message: "Error fetching inventory", error: err.message });
+    res.status(500).json({
+      message: "Error fetching inventory",
+      error: err.message,
+    });
   }
 };
+
+// exports.getInventory = async (req, res) => {
+//   try {
+//     console.log('=== BACKEND API CALLED ===');
+//     const items = await Inventory.find({ isDeleted: { $ne: true } }).populate({
+//       path: "suppliers.supplierId",
+//       model: "Supplier",
+//       select: "supplierName email phoneNumber rawItem"
+//     });
+//     console.log('Raw items from database:', items.length);
+
+//     // ✅ FIXED: Now each item has suppliers array, no need to group
+//     const processedItems = items.map(item => ({
+//       _id: item._id,
+//       itemName: item.itemName,
+//       unit: item.unit,
+//       restaurantId: item.restaurantId,
+//       stock: {
+//         quantity: roundToDecimals(Number(item.stock?.quantity || 0)),
+//         amount: roundToDecimals(Number(item.stock?.amount || 0)),
+//         total: roundToDecimals(Number(item.stock?.total || 0)),
+//         totalQuantity: roundToDecimals(Number(item.stock?.totalQuantity || 0)), // ✅ Include totalQuantity with rounding
+//         purchasedAt: item.stock?.purchasedAt
+//       },
+//       suppliers: item.suppliers || [],
+//       isDeleted: item.isDeleted,
+//       createdAt: item.createdAt,
+//       updatedAt: item.updatedAt
+//     }));
+
+//     console.log('=== SENDING RESPONSE ===');
+//     console.log('Processed items count:', processedItems.length);
+//     console.log('Sample item:', processedItems[0]);
+
+//     res.status(200).json(processedItems);
+//   } catch (err) {
+//     console.error('Error in getInventory:', err);
+//     res.status(500).json({ message: "Error fetching inventory", error: err.message });
+//   }
+// };
 
 // ➤ Get single inventory item
 exports.getInventoryById = async (req, res) => {
@@ -382,7 +437,7 @@ exports.updateStock = async (req, res) => {
     const roundedQuantity = roundToDecimals(Number(quantity));
     item.stock.quantity = roundedQuantity;
     item.stock.totalQuantity = roundedQuantity; // Update totalQuantity as well
-    
+
     await item.save();
 
     res.status(200).json({ message: "Stock updated successfully", item });

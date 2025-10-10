@@ -44,7 +44,12 @@ exports.createDueTransaction = async (req, res) => {
 // ---------------- GET ALL DUE TRANSACTIONS ----------------
 exports.getAllDueTransactions = async (req, res) => {
   try {
-    const items = await DueTransaction.find();
+    const restaurantId = req.query.restaurantId || req.userId;
+
+    if (!restaurantId) {
+      return res.status(400).json({ message: "Restaurant ID is required" });
+    }
+    const items = await DueTransaction.find({ restaurantId })
     res.status(200).json(items);
   } catch (err) {
     console.error(err)
