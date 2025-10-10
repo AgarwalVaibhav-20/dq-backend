@@ -28,7 +28,7 @@ const triggerLowStockCheckManual = async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Error in manual low stock check:', error);
+    // console.error('Error in manual low stock check:', error);
     res.status(500).json(errorResponse('Failed to trigger low stock check', 500));
   }
 };
@@ -51,7 +51,7 @@ const getLowStockItemsForRestaurant = async (req, res) => {
     res.json(successResponse('Low stock items retrieved successfully', result));
 
   } catch (error) {
-    console.error('Error fetching low stock items:', error);
+    // console.error('Error fetching low stock items:', error);
     res.status(500).json(errorResponse('Failed to fetch low stock items', 500));
   }
 };
@@ -62,7 +62,7 @@ const getCronJobStatusController = async (req, res) => {
     const status = getCronJobStatus();
     res.json(successResponse('Cron job status retrieved successfully', status));
   } catch (error) {
-    console.error('Error getting cron job status:', error);
+    // console.error('Error getting cron job status:', error);
     res.status(500).json(errorResponse('Failed to get cron job status', 500));
   }
 };
@@ -81,26 +81,26 @@ const debugSystemStatus = async (req, res) => {
       return res.status(400).json(errorResponse('Restaurant ID is required', 400));
     }
 
-    console.log(`🔍 Debugging system for restaurant: ${restaurantId}`);
+    // console.log(`🔍 Debugging system for restaurant: ${restaurantId}`);
 
     // Dynamic import to avoid circular dependency
     const Inventory = require('../model/Inventory');
 
     // Check inventory stock settings
     const stockSettings = await InventoryStockSettings.findOne({ restaurantId });
-    console.log('📊 Stock settings:', stockSettings);
+    // console.log('📊 Stock settings:', stockSettings);
     
     // Check inventory items
     const inventoryItems = await Inventory.find({ restaurantId }).limit(10);
-    console.log(`📦 Found ${inventoryItems.length} inventory items`);
+    // console.log(`📦 Found ${inventoryItems.length} inventory items`);
     
     // Check admin users
     const adminUsers = await User.find({ role: 'admin' }).limit(3);
-    console.log(`👥 Found ${adminUsers.length} admin users`);
+    // console.log(`👥 Found ${adminUsers.length} admin users`);
     
     // Get threshold
     const threshold = stockSettings?.lowStockThreshold || 10;
-    console.log(`🎯 Threshold set to: ${threshold}`);
+    // console.log(`🎯 Threshold set to: ${threshold}`);
 
     // Detailed analysis of each inventory item
     const detailedInventory = inventoryItems.map(item => {
@@ -143,7 +143,7 @@ const debugSystemStatus = async (req, res) => {
     // Find low stock items using the analysis
     const lowStockItems = detailedInventory.filter(item => item.isLowStock);
 
-    console.log(`🚨 Found ${lowStockItems.length} low stock items`);
+    // console.log(`🚨 Found ${lowStockItems.length} low stock items`);
 
     res.json(successResponse('Debug information retrieved successfully', {
       restaurantId,
@@ -167,7 +167,7 @@ const debugSystemStatus = async (req, res) => {
     }));
 
   } catch (error) {
-    console.error('Error in debug system status:', error);
+    // console.error('Error in debug system status:', error);
     res.status(500).json(errorResponse('Failed to get debug information', 500));
   }
 };
@@ -194,7 +194,7 @@ const testLowStockWithThreshold = async (req, res) => {
 
     // Get all inventory items
     const allInventoryItems = await Inventory.find({ restaurantId });
-    console.log(`📦 Found ${allInventoryItems.length} total inventory items`);
+    // console.log(`📦 Found ${allInventoryItems.length} total inventory items`);
 
     // Analyze each item
     const analysisResults = allInventoryItems.map(item => {
@@ -258,7 +258,7 @@ const triggerAutoEmailCheck = async (req, res) => {
       return res.status(400).json(errorResponse('Restaurant ID is required', 400));
     }
 
-    console.log(`🔍 Manual auto email check triggered for restaurant: ${restaurantId}`);
+    // console.log(`🔍 Manual auto email check triggered for restaurant: ${restaurantId}`);
 
     // Trigger the auto email check
     await checkRestaurantLowStock(restaurantId);
@@ -283,7 +283,7 @@ const triggerImmediateEmailTest = async (req, res) => {
       return res.status(401).json(errorResponse('User not authenticated', 401));
     }
 
-    console.log('🚀 Triggering immediate email test for all restaurants...');
+    // console.log('🚀 Triggering immediate email test for all restaurants...');
 
     // Import the function dynamically
     const { sendLowStockEmailsForAllRestaurants } = require('../services/LowStockEmailService');
@@ -316,7 +316,7 @@ const debugUserEmailLookup = async (req, res) => {
       return res.status(400).json(errorResponse('Restaurant ID is required', 400));
     }
 
-    console.log(`🔍 Debugging user email lookup for restaurantId: ${restaurantId}`);
+    // console.log(`🔍 Debugging user email lookup for restaurantId: ${restaurantId}`);
 
     // Dynamic import to avoid circular dependency
     const User = require('../model/User');
@@ -398,24 +398,24 @@ const debugUserEmailLookup = async (req, res) => {
 // Test email sending to specific user
 const testEmailToUser = async (req, res) => {
   try {
-    console.log('🧪 Test email endpoint called');
-    console.log('Request query:', req.query);
-    console.log('Request user:', req.user);
+    // console.log('🧪 Test email endpoint called');
+    // console.log('Request query:', req.query);
+    // console.log('Request user:', req.user);
 
     const { restaurantId } = req.query;
     const userId = req.user?._id;
     
     if (!userId) {
-      console.log('❌ User not authenticated');
+      // console.log('❌ User not authenticated');
       return res.status(401).json(errorResponse('User not authenticated', 401));
     }
 
     if (!restaurantId) {
-      console.log('❌ Restaurant ID is required');
+      // console.log('❌ Restaurant ID is required');
       return res.status(400).json(errorResponse('Restaurant ID is required', 400));
     }
 
-    console.log(`🧪 Testing email sending to user with restaurantId: ${restaurantId}`);
+    // console.log(`🧪 Testing email sending to user with restaurantId: ${restaurantId}`);
 
     // Dynamic import to avoid circular dependency
     const User = require('../model/User');
