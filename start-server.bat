@@ -1,0 +1,6 @@
+@echo off
+echo Setting up environment variables...
+set MONGO_URL=mongodb+srv://nileshgoyal624_db_user:nilesh774@cluster0.t0sg444.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0/dqdashboard
+set PORT=4000
+echo Starting server...
+npm start
