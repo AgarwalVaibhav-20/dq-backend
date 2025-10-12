@@ -120,9 +120,9 @@ startCronJobs();
 initializeAutoEmailService();
 
 // 1. COMMENT this (for prod)
-// app.listen(PORT, () => {
-//   console.log(`🚀 Server started at http://localhost:${PORT}`);
-// });
+app.listen(PORT, () => {
+  console.log(`🚀 Server started at http://localhost:${PORT}`);
+});
 
 // UNcomment this (for prod)
-module.exports = app;
+// module.exports = app;
