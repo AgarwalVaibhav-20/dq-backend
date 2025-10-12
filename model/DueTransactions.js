@@ -30,7 +30,9 @@ const dueTransactionSchema = new mongoose.Schema(
       default: "unpaid",
     },
     restaurantId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
     },
   },
   {
@@ -57,7 +59,7 @@ module.exports = DueTransaction;
 //   {
 //     customer_id: {
 //       type: mongoose.Schema.Types.ObjectId,
-//       ref: "Customer", 
+//       ref: "Customer",
 //     },
 //     total: {
 //       type: Number,
@@ -67,7 +69,7 @@ module.exports = DueTransaction;
 //     },
 //     status: {
 //       type: String,
-//       enum: ["paid" , "unpaid"], 
+//       enum: ["paid" , "unpaid"],
 //     },
 //     restaurantId: {
 //       type: String,

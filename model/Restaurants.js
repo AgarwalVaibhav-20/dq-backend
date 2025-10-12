@@ -29,9 +29,14 @@ const operatingHoursSchema = new mongoose.Schema({
 
 // Simplified Restaurant Schema
 const restaurantSchema = new mongoose.Schema({
-  restaurantId:{
-    type:String
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
+  // restaurantId:{
+  //   type:String
+  // },
   restaurantName: {
     type: String,
     required: true,
@@ -98,8 +103,7 @@ const restaurantSchema = new mongoose.Schema({
   totalReviews: {
     type: Number,
     default: 0
-  },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  }
 }, { timestamps: true });
 
 // Instance Methods

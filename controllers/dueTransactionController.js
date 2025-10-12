@@ -249,3 +249,52 @@ exports.getDueTransactionById = async (req, res) => {
     });
   }
 };
+
+exports.getDueTransactionsByCustomer = async (req, res) => {
+  try {
+    // Accept customer_id from URL params OR query params
+    const customer_id = req.params.customer_id || req.query.customer_id;
+
+    // Validate customer_id
+    if (!customer_id || !mongoose.Types.ObjectId.isValid(customer_id)) {
+      return res.status(400).json({
+        message: "Valid customer ID is required",
+        success: false,
+      });
+    }
+
+    // Optional: accept restaurantId if you want to filter by restaurant
+    const restaurantId = req.query.restaurantId;
+    const filter = { customer_id };
+    if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {
+      filter.restaurantId = restaurantId;
+    }
+
+    // Fetch due transactions
+    const dueTransactions = await DueTransaction.find(filter);
+
+    // If none found
+    if (!dueTransactions || dueTransactions.length === 0) {
+      return res.status(200).json({
+        message: "No due transactions found for this customer.",
+        success: true,
+        data: [],
+      });
+    }
+
+    // Success response
+    res.status(200).json({
+      message: "Due transactions retrieved successfully",
+      success: true,
+      data: dueTransactions,
+    });
+
+  } catch (error) {
+    console.error("Error fetching customer dues:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      success: false,
+      error: error.message,
+    });
+  }
+};

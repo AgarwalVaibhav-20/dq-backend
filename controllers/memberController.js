@@ -2,8 +2,9 @@ const Member = require("../model/Member");
 
 exports.getAllMembers = async (req, res) => {
   try {
-     const restaurantId = req.query.restaurantId || req.userId;
+     const restaurantId = req.userId;
     const members = await Member.find({restaurantId});
+    console.log("members kjahkjdhfka ", members)
     // const members = await Member.find();
     res.status(200).json(members);
   } catch (error) {

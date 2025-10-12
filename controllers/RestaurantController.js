@@ -13,7 +13,7 @@ const handleValidationErrors = (req, res) => {
 
 // Helper to check ownership or admin
 const checkOwnership = (restaurant, user) => {
-    return restaurant.createdBy.toString() === user._id.toString() || user.role === 'admin';
+    return restaurant.restaurantId.toString() === user._id.toString() || user.role === 'admin';
 };
 
 // @desc Get all restaurants
@@ -21,6 +21,8 @@ const getAllRestaurants = async (req, res) => {
     try {
         const { page = 1, limit = 10, status, city, cuisine, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
         const filter = {};
+
+        filter.restaurantId = req.userId
 
         if (status) filter.status = status;
         if (city) filter.city = new RegExp(city, 'i');
@@ -38,10 +40,10 @@ const getAllRestaurants = async (req, res) => {
         const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
 
         const restaurants = await Restaurant.find(filter)
-            .populate('createdBy', 'name email')
-            .sort(sort)
-            .limit(limit * 1)
-            .skip((page - 1) * limit);
+        .sort(sort)
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
+            // .populate('restaurantId', 'name email')
 
         const total = await Restaurant.countDocuments(filter);
 
@@ -61,7 +63,8 @@ const getAllRestaurants = async (req, res) => {
 // @desc Get restaurant by ID
 const getRestaurantById = async (req, res) => {
     try {
-        const restaurant = await Restaurant.findById(req.params.id).populate('createdBy', 'name email');
+        const restaurant = await Restaurant.findById(req.params.id)
+        // .populate('restaurantId', 'name email');
         if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
         res.status(200).json({ success: true, restaurant });
     } catch (error) {
@@ -89,18 +92,25 @@ const createRestaurant = async (req, res) => {
         if (handleValidationErrors(req, res)) return;
 
         const restaurantData = parseRestaurantData(req.body, req.file);
-        restaurantData.createdBy = req.user._id;
+        restaurantData.restaurantId = req.user._id;
 
         const restaurant = new Restaurant(restaurantData);
         await restaurant.save();
-        await restaurant.populate('createdBy', 'name email');
-
-        res.status(201).json({ success: true, message: 'Restaurant created successfully', restaurant });
+        // await restaurant.populate('restaurantId', 'name email');
+        res.status(201).json({
+            success: true,
+            message: 'Restaurant created successfully',
+            restaurant: {
+                ...restaurant.toObject(),
+                restaurantId: restaurantData.restaurantId.toString() // Only send ID as a string
+            }
+        });
+        // res.status(201).json({ success: true, message: 'Restaurant created successfully', restaurant });
     } catch (error) {
-        if (error.code === 11000) {
-            const field = Object.keys(error.keyPattern)[0];
-            return res.status(400).json({ success: false, message: field === 'email' ? 'Email already registered' : `${field} already exists` });
-        }
+        // if (error.code === 11000) {
+        //     const field = Object.keys(error.keyPattern)[0];
+        //     return res.status(400).json({ success: false, message: field === 'email' ? 'Email already registered' : `${field} already exists` });
+        // }
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
     }
 };
@@ -118,7 +128,7 @@ const updateRestaurant = async (req, res) => {
         const updateData = parseRestaurantData(req.body, req.file);
 
         const updatedRestaurant = await Restaurant.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true })
-            .populate('createdBy', 'name email');
+            // .populate('restaurantId', 'name email');
 
         res.status(200).json({ success: true, message: 'Restaurant updated successfully', restaurant: updatedRestaurant });
     } catch (error) {
@@ -153,7 +163,7 @@ const updateRestaurantStatus = async (req, res) => {
         if (!validStatuses.includes(status)) return res.status(400).json({ success: false, message: 'Invalid status' });
 
         const restaurant = await Restaurant.findByIdAndUpdate(req.params.id, { status }, { new: true, runValidators: true })
-            .populate('createdBy', 'name email');
+            // .populate('restaurantId', 'name email');
 
         if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
 
@@ -168,7 +178,8 @@ const getRestaurantsByField = async (req, res, field) => {
     try {
         const value = req.params[field];
         const method = field === 'city' ? 'getRestaurantsByCity' : field === 'cuisine' ? 'getRestaurantsByCuisine' : 'searchRestaurants';
-        const restaurants = await Restaurant[method](value).populate('createdBy', 'name email');
+        const restaurants = await Restaurant[method](value)
+        // .populate('restaurantId', 'name email');
 
         res.status(200).json({ success: true, count: restaurants.length, restaurants });
     } catch (error) {
@@ -184,7 +195,7 @@ const toggleRestaurantStatus = async (req, res) => {
         if (!checkOwnership(restaurant, req.user)) return res.status(403).json({ success: false, message: 'Not authorized' });
 
         await restaurant.toggleStatus();
-        await restaurant.populate('createdBy', 'name email');
+        // await restaurant.populate('restaurantId', 'name email');
 
         res.status(200).json({ success: true, message: 'Restaurant status toggled', restaurant });
     } catch (error) {
