@@ -7,7 +7,7 @@ exports.addTable = async (req, res) => {
     const { restaurantId, floorId, tableNumber } = req.body;
     // ... validation code ...
     // const qrData = `${process.env.FRONTEND_URL}/table/${restaurantId}/${floorId}/${tableNumber}`;
-    const qrData = `${process.env.FRONTEND_URL}/table/${restaurantId}/${floorId}/${tableNumber}`
+    const qrData = `${process.env.FRONTEND_URL}/table?restaurantId=${restaurantId}&floorId=${floorId}&tableNumber=${tableNumber}`
     const qrImage = await generateQRCode(qrData);
 
     const isTableAlreadyPresent = await QrCode.findOne({restaurantId, tableNumber})
