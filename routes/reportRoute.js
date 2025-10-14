@@ -23,13 +23,13 @@ router.get('/customer-report/:restaurantId', authMiddleware, ReportsController.g
 router.get('/report-by-table', authMiddleware, ReportsController.getTableReport);
 
 // Get transaction count by date
-router.get('/transactionCountByDate', authMiddleware, ReportsController.getTransactionCountByDate);
+router.get('/report/transactionCountByDate', authMiddleware, ReportsController.getTransactionCountByDate);
 
 // Get tax collected by date
 router.get('/taxCollectedByDate', authMiddleware, ReportsController.getTaxCollectedByDate);
 
 // Get table usage by date
-router.get('/tableUsageByDate', authMiddleware, ReportsController.getTableUsageByDate);
+router.get('/report/tableUsageByDate', authMiddleware, ReportsController.getTableUsageByDate);
 
 // Get payment type report
 router.post('/getReportPaymentType', authMiddleware, ReportsController.getPaymentTypeReport);
@@ -38,20 +38,20 @@ router.post('/getReportPaymentType', authMiddleware, ReportsController.getPaymen
 
 // Get discount usage by date
 // router.get('/discountUsageByDate', authMiddleware, ReportsController.getDiscountUsageByDate);
-router.get('/discountUsageByDate', (req, res, next) => {
+router.get('/report/discountUsageByDate', (req, res, next) => {
   console.log("👉 Hit /discountUsageByDate route");
   next();
 }, authMiddleware, ReportsController.getDiscountUsageByDate);
 
 
 // Get average order value by date
-router.get('/averageOrderValueByDate', authMiddleware, ReportsController.getAverageOrderValueByDate);
+router.get('/report/averageOrderValueByDate', authMiddleware, ReportsController.getAverageOrderValueByDate);
 
 // Get transactions by payment type
 router.get('/transactionsByPaymentType', authMiddleware, ReportsController.getTransactionsByPaymentType);
 
 // Get total revenue by date
-router.get('/totalRevenueByDate', authMiddleware, ReportsController.getTotalRevenueByDate);
+router.get('/reports/totalRevenueByDate', authMiddleware, ReportsController.getTotalRevenueByDate);
 
 // Get most ordered dishes
 router.get('/mostOrderDishes', authMiddleware, ReportsController.getMostOrderedDishes);

@@ -7,6 +7,8 @@ const { authMiddleware } = require("../middleware/authMiddleware");
 router.get("/get-all/transaction", authMiddleware, TransactionController.getAllTransactions);
 router.get("/transactionById/:transactionId", authMiddleware, TransactionController.getTransactionById);
 router.get("/get-by-restaurant/transaction/:restaurantId", authMiddleware, TransactionController.getTransactionsByRestaurant);
+router.get("/get-by-year-restaurant/transaction/:restaurantId", authMiddleware, TransactionController.getTransactionsByYearRestaurant);
+
 router.post("/create/transaction", authMiddleware, TransactionController.createTransaction);
 router.put("/:id", authMiddleware, TransactionController.updateTransaction);
 router.delete("/deleteTransaction/:id", authMiddleware, TransactionController.deleteTransaction);

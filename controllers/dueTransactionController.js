@@ -49,7 +49,7 @@ exports.getAllDueTransactions = async (req, res) => {
     if (!restaurantId) {
       return res.status(400).json({ message: "Restaurant ID is required" });
     }
-    const items = await DueTransaction.find({ restaurantId })
+    const items = await DueTransaction.find({restaurantId})
     res.status(200).json(items);
   } catch (err) {
     console.error(err)

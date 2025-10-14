@@ -382,6 +382,51 @@ exports.getTransactionsByRestaurant = async (req, res) => {
   }
 };
 
+exports.getTransactionsByYearRestaurant = async(req,res)=>{
+  try {
+    const { restaurantId } = req.params;
+    const { year } = req.query; // <-- year query me aayega
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required"
+      });
+    }
+
+    // Year filter apply karo (agar diya gaya hai)
+    let dateFilter = {};
+    if (year) {
+      const startOfYear = new Date(parseInt(year), 0, 1);
+      const endOfYear = new Date(parseInt(year) + 1, 0, 1);
+      dateFilter = {
+        createdAt: { $gte: startOfYear, $lt: endOfYear }
+      };
+    }
+
+    const transactions = await Transaction.find({
+      restaurantId,
+      isDeleted: { $ne: true },
+      ...dateFilter
+    })
+      .populate("userId", "username email fullName")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: transactions,
+      count: transactions.length
+    });
+  } catch (err) {
+    console.error("Get Transactions By Restaurant Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message
+    });
+  }
+};
+
 // ---------------- GET TRANSACTION BY ID ----------------
 exports.getTransactionById = async (req, res) => {
   const { transactionId } = req.params;
