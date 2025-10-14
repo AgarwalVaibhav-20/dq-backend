@@ -64,6 +64,10 @@ const customerSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    rewardCustomerPoints:{
+      type:Number,
+      default:0,
+    }
   },
   { timestamps: true }
 );

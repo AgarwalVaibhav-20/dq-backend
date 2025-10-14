@@ -23,7 +23,7 @@ const path = require("path");
 const report = require('./routes/reportRoute.js')
 const dashboard = require('./routes/dashboardRoute.js')
 const coupen = require('./routes/CoupenRoute.js')
-const uploadRoute =require("./routes/uploadRoute.js");
+const uploadRoute = require("./routes/uploadRoute.js");
 const restaurant = require('./routes/restaurant.js')
 const loginActivity = require('./routes/loginActivity.js')
 const settingsRoute = require('./routes/settingsRoute.js')
@@ -35,6 +35,7 @@ const lowStockRoutes = require('./routes/lowStockRoute.js');
 const emailTestRoutes = require('./routes/emailTestRoute.js');
 const { startCronJobs } = require('./services/CronJobService');
 const { initializeAutoEmailService } = require('./services/AutoEmailService');
+const Waste = require('./routes/WasteRoute.js')
 dotenv.config();
 
 const app = express();
@@ -85,6 +86,7 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/", authRouter);
+app.use(Waste)
 app.use(category)
 app.use(customer)
 app.use(supplier)

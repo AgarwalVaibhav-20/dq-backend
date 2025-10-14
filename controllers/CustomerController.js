@@ -3,7 +3,7 @@ const Customer = require("../model/Customer");
 
 exports.createCustomer = async (req, res) => {
   try {
-    const { name, email, address, phoneNumber, restaurantId, birthday, anniversary, corporate, membershipId, membershipName } = req.body;
+    const { name, email, address, phoneNumber, restaurantId, birthday, anniversary, corporate, membershipId, membershipName, rewardCustomerPoints } = req.body;
 
     if (!name || !email || !restaurantId) {
       return res.status(400).json({ message: "Name, email and restaurantId are required" });
@@ -24,8 +24,8 @@ exports.createCustomer = async (req, res) => {
       anniversary,
       membershipId,
       membershipName,
-      corporate
-
+      corporate,
+      rewardCustomerPoints,
     });
     await newCustomer.save();
 
@@ -39,6 +39,121 @@ exports.createCustomer = async (req, res) => {
   }
 };
 
+exports.addRewardPoints = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pointsToAdd } = req.body;
+
+    console.log(`🎁 Adding ${pointsToAdd} reward points to customer ${id}`);
+
+    // Validate input
+    if (!pointsToAdd || pointsToAdd < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid points to add. Must be a positive number."
+      });
+    }
+
+    // Find customer
+    const customer = await Customer.findById(id);
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    // Add points to existing balance
+    const currentPoints = Number(customer.rewardCustomerPoints) || 0;
+    customer.rewardCustomerPoints = currentPoints + pointsToAdd;
+
+    // Save updated customer
+    await customer.save();
+
+    console.log(`✅ Customer ${customer.name} now has ${customer.rewardCustomerPoints} points`);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully added ${pointsToAdd} reward points`,
+      data: {
+        customerId: customer._id,
+        customerName: customer.name,
+        previousPoints: currentPoints,
+        pointsAdded: pointsToAdd,
+        totalPoints: customer.rewardCustomerPoints
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error adding reward points:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding reward points',
+      error: error.message
+    });
+  }
+};
+
+exports.deductRewardPoints = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pointsToDeduct } = req.body;
+
+    console.log(`🎁 Deducting ${pointsToDeduct} reward points from customer ${id}`);
+
+    // Validate input
+    if (!pointsToDeduct || pointsToDeduct <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid points to deduct. Must be a positive number."
+      });
+    }
+
+    // Find customer
+    const customer = await Customer.findById(id);
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    // Check if customer has enough points
+    const currentPoints = Number(customer.rewardCustomerPoints) || 0;
+    if (currentPoints < pointsToDeduct) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient reward points. Customer has ${currentPoints} points, but trying to deduct ${pointsToDeduct} points.`
+      });
+    }
+
+    // Deduct points
+    customer.rewardCustomerPoints = currentPoints - pointsToDeduct;
+    await customer.save();
+
+    console.log(`✅ Customer ${customer.name} now has ${customer.rewardCustomerPoints} points`);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully deducted ${pointsToDeduct} reward points`,
+      data: {
+        customerId: customer._id,
+        customerName: customer.name,
+        previousPoints: currentPoints,
+        pointsDeducted: pointsToDeduct,
+        remainingPoints: customer.rewardCustomerPoints
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error deducting reward points:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deducting reward points',
+      error: error.message
+    });
+  }
+};
 // 📌 Get All Customers
 exports.getAllCustomers = async (req, res) => {
   try {
@@ -62,8 +177,8 @@ exports.getAllCustomers = async (req, res) => {
 exports.getAllCustomersForReservation = async (req, res) => {
   try {
     console.log("🔍 Fetching ALL customers for reservation dropdown...");
-     const { restaurantId } = req.query;
-    const customers = await Customer.find({restaurantId}).populate('membershipId');;
+    const { restaurantId } = req.query;
+    const customers = await Customer.find({ restaurantId }).populate('membershipId');;
     console.log("📊 Total customers found:", customers.length);
     res.json(customers);
   } catch (err) {
