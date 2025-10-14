@@ -245,37 +245,37 @@ exports.createTransaction = async (req, res) => {
     }
 
     // Credit reward points to customer if customerId is provided
-    if (customerId) {
-      try {
-        const Menu = require("../model/Menu");
-        const Customer = require("../model/Customer");
+    // ✅ Credit reward points only if customerId is valid
+if (customerId && customerId !== "undefined" && mongoose.Types.ObjectId.isValid(customerId)) {
+  try {
+    const Menu = require("../model/Menu");
+    const Customer = require("../model/Customer");
 
-        // Calculate total reward points from all items in the transaction
-        let totalRewardPoints = 0;
+    let totalRewardPoints = 0;
 
-        for (const item of processedItems) {
-          // Find the menu item to get its reward points
-          const menuItem = await Menu.findById(item.itemId);
-          if (menuItem && menuItem.rewardPoints) {
-            totalRewardPoints += menuItem.rewardPoints * item.quantity;
-          }
-        }
-
-        // Update customer's earned points if there are reward points to credit
-        if (totalRewardPoints > 0) {
-          await Customer.findByIdAndUpdate(
-            customerId,
-            { $inc: { earnedPoints: totalRewardPoints } },
-            { new: true }
-          );
-
-          console.log(`Credited ${totalRewardPoints} reward points to customer ${customerId}`);
-        }
-      } catch (rewardError) {
-        console.error("Error crediting reward points:", rewardError);
-        // Don't fail the transaction if reward points fail
+    for (const item of processedItems) {
+      const menuItem = await Menu.findById(item.itemId);
+      if (menuItem && menuItem.rewardPoints) {
+        totalRewardPoints += menuItem.rewardPoints * item.quantity;
       }
     }
+
+    if (totalRewardPoints > 0) {
+      await Customer.findByIdAndUpdate(
+        customerId,
+        { $inc: { earnedPoints: totalRewardPoints } },
+        { new: true }
+      );
+
+      console.log(`✅ Credited ${totalRewardPoints} reward points to customer ${customerId}`);
+    }
+  } catch (rewardError) {
+    console.error("Error crediting reward points:", rewardError);
+  }
+} else {
+  console.log("⚠️ No customer selected — skipping reward points logic.");
+}
+
 
     res.status(201).json({
       success: true,

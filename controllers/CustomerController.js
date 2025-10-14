@@ -3,10 +3,29 @@ const Customer = require("../model/Customer");
 
 exports.createCustomer = async (req, res) => {
   try {
-    const { name, email, address, phoneNumber, restaurantId, birthday, anniversary, corporate, membershipId, membershipName, rewardCustomerPoints } = req.body;
+    let {
+      name,
+      email,
+      address,
+      phoneNumber,
+      restaurantId,
+      birthday,
+      anniversary,
+      corporate,
+      membershipId,
+      membershipName,
+      rewardCustomerPoints,
+    } = req.body;
+
+    // ✅ Clean membershipId if empty string
+    if (membershipId === "") {
+      membershipId = null;
+    }
 
     if (!name || !email || !restaurantId) {
-      return res.status(400).json({ message: "Name, email and restaurantId are required" });
+      return res
+        .status(400)
+        .json({ message: "Name, email, and restaurantId are required" });
     }
 
     const existingCustomer = await Customer.findOne({ email });
@@ -22,16 +41,17 @@ exports.createCustomer = async (req, res) => {
       restaurantId,
       birthday,
       anniversary,
+      corporate,
       membershipId,
       membershipName,
-      corporate,
       rewardCustomerPoints,
     });
+
     await newCustomer.save();
 
     return res.status(201).json({
       message: "Customer created successfully",
-      customer: newCustomer
+      customer: newCustomer,
     });
   } catch (err) {
     console.error("Error in createCustomer:", err);

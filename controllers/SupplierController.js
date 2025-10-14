@@ -30,14 +30,14 @@ exports.createSupplier = async (req, res) => {
         message: "Supplier name and phone number are required",
       });
     }
-    if (email) {
-      const existingSupplier = await Supplier.findOne({ email, restaurantId });
-      if (existingSupplier) {
-        return res
-          .status(400)
-          .json({ message: "Supplier already exists with this email" });
-      }
-    }
+    // if (email) {
+    //   const existingSupplier = await Supplier.findOne({ email, restaurantId });
+    //   if (existingSupplier) {
+    //     return res
+    //       .status(400)
+    //       .json({ message: "Supplier already exists with this email" });
+    //   }
+    // }
     const supplier = new Supplier({
       supplierName,
       email,

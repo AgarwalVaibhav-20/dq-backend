@@ -1,5 +1,6 @@
 const WasteMaterial = require("../model/Waste");
 const Inventory = require("../model/Inventory"); // ✅ ADD THIS IMPORT
+const mongoose = require('mongoose');
 
 // ✅ Create new waste material entry
 exports.createWasteMaterial = async (req, res) => {
@@ -108,79 +109,87 @@ exports.getWasteMaterials = async (req, res) => {
 
 // ✅ CORRECTED Update waste material function
 exports.updateWasteMaterial = async (req, res) => {
-    try {
-        const { itemId: newItemId, itemName, wasteQuantity: newWasteQuantity, unit, reason, date } = req.body; //
-        const wasteId = req.params.id; //
+  try {
+    const { itemId: newItemId, itemName, wasteQuantity: newWasteQuantity, unit, reason, date } = req.body;
+    const wasteId = req.params.id;
 
-        // 1. Find the existing waste record
-        const existingWaste = await WasteMaterial.findById(wasteId); //
-        if (!existingWaste) {
-            return res.status(404).json({ success: false, message: "Waste material not found" }); //
-        }
+    if (!wasteId) return res.status(400).json({ success: false, message: "Waste ID missing" });
+    if (!mongoose.Types.ObjectId.isValid(wasteId)) return res.status(400).json({ success: false, message: "Invalid Waste ID" });
 
-        const oldItemId = existingWaste.itemId; //
-        const oldWasteQuantity = existingWaste.wasteQuantity; //
+    const existingWaste = await WasteMaterial.findById(wasteId);
+    if (!existingWaste) return res.status(404).json({ success: false, message: "Waste record not found" });
 
-        // CHANGE #1: Safely check if the item has changed. This prevents a crash if oldItemId is null.
-        const itemHasChanged = oldItemId && newItemId ? oldItemId.toString() !== newItemId : false;
-
-        // 2. Handle stock adjustment
-        if (itemHasChanged) {
-            // ... (Code for when the item is changed)
-            const oldInventoryItem = await Inventory.findById(oldItemId); //
-            if (oldInventoryItem) {
-                oldInventoryItem.stock.quantity = (oldInventoryItem.stock?.quantity ?? 0) + oldWasteQuantity; //
-                // CHANGE #2: Use optional chaining (?.) to safely access nested properties.
-                if (oldInventoryItem.stock?.totalQuantity) {
-                    oldInventoryItem.stock.totalQuantity += oldWasteQuantity; //
-                }
-                await oldInventoryItem.save(); //
-            }
-
-            const newInventoryItem = await Inventory.findById(newItemId); //
-            // ... (rest of logic for new item)
-
-        } else {
-            // CASE B: The item is the same, or one of the IDs was missing
-            const currentItemId = newItemId || oldItemId;
-            if (!currentItemId) {
-                return res.status(400).json({ success: false, message: "Inventory item ID is missing." });
-            }
-            const inventoryItem = await Inventory.findById(currentItemId); //
-            if (!inventoryItem) {
-                return res.status(404).json({ success: false, message: "Inventory item not found" }); //
-            }
-
-            const quantityDifference = newWasteQuantity - oldWasteQuantity; //
-            inventoryItem.stock.quantity -= quantityDifference; //
-            // Also use optional chaining here for safety
-            if (inventoryItem.stock?.totalQuantity) {
-                inventoryItem.stock.totalQuantity -= quantityDifference; //
-            }
-            await inventoryItem.save(); //
-        }
-
-        // 3. Update the waste record itself with the new data
-        existingWaste.itemId = newItemId; //
-        existingWaste.stockName = itemName; //
-        existingWaste.wasteQuantity = newWasteQuantity; //
-        existingWaste.unit = unit; //
-        existingWaste.note = reason; //
-        existingWaste.date = date; //
-        await existingWaste.save(); //
-
-        res.status(200).json({
-            success: true,
-            message: "Waste material updated successfully",
-            waste: existingWaste,
-        }); //
-
-    } catch (error) {
-        // CHANGE #3: Add detailed logging to make future debugging easier.
-        console.error("CRITICAL ERROR in updateWasteMaterial:", error);
-        res.status(500).json({ success: false, message: "Internal server error" }); //
+    const oldItemId = existingWaste.itemId;
+    const oldWasteQuantity = existingWaste.wasteQuantity;
+    const newWasteQuantityNum = Number(newWasteQuantity);
+    const oldWasteQuantityNum = Number(oldWasteQuantity);
+    if (isNaN(newWasteQuantityNum) || isNaN(oldWasteQuantityNum)) {
+      return res.status(400).json({ success: false, message: "Invalid waste quantity value" });
     }
+
+    const itemHasChanged = oldItemId && newItemId ? oldItemId.toString() !== newItemId : false;
+    console.log({ wasteId, newItemId, oldItemId, itemHasChanged });
+
+    if (itemHasChanged) {
+      const oldInventoryItem = await Inventory.findById(oldItemId);
+      if (oldInventoryItem?.stock) {
+        oldInventoryItem.stock.quantity = (oldInventoryItem.stock.quantity ?? 0) + oldWasteQuantityNum;
+        if (oldInventoryItem.stock.totalQuantity != null)
+          oldInventoryItem.stock.totalQuantity += oldWasteQuantityNum;
+        await oldInventoryItem.save();
+      }
+
+      const newInventoryItem = await Inventory.findById(newItemId);
+      if (newInventoryItem?.stock) {
+        newInventoryItem.stock.quantity -= newWasteQuantityNum;
+        if (newInventoryItem.stock.totalQuantity != null)
+          newInventoryItem.stock.totalQuantity -= newWasteQuantityNum;
+        await newInventoryItem.save();
+      }
+
+    } else {
+      const currentItemId = newItemId || oldItemId;
+      if (!currentItemId) return res.status(400).json({ success: false, message: "Inventory item ID missing" });
+
+      const inventoryItem = await Inventory.findById(currentItemId);
+      if (!inventoryItem) return res.status(404).json({ success: false, message: "Inventory item not found" });
+
+      const quantityDifference = newWasteQuantityNum - oldWasteQuantityNum;
+      if (inventoryItem.stock) {
+        inventoryItem.stock.quantity -= quantityDifference;
+        if (inventoryItem.stock.totalQuantity != null)
+          inventoryItem.stock.totalQuantity -= quantityDifference;
+        await inventoryItem.save();
+      }
+    }
+
+    let updatedItemName = itemName;
+
+if (!updatedItemName && newItemId) {
+  const inventoryItem = await Inventory.findById(newItemId);
+  updatedItemName = inventoryItem ? inventoryItem.itemName || inventoryItem.name : "Unknown Item";
+}
+
+    existingWaste.itemId = newItemId;
+    existingWaste.stockName = itemName || updatedItemName || existingWaste.stockName;
+    existingWaste.wasteQuantity = newWasteQuantityNum;
+    existingWaste.unit = unit;
+    existingWaste.note = reason;
+    existingWaste.date = date;
+    await existingWaste.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Waste material updated successfully",
+      waste: existingWaste,
+    });
+
+  } catch (error) {
+    console.error("CRITICAL ERROR in updateWasteMaterial:", error);
+    res.status(500).json({ success: false, message: "Internal server error hai", error: error.message });
+  }
 };
+
 // ✅ Delete waste material
 exports.deleteWasteMaterial = async (req, res) => {
     try {
