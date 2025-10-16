@@ -1,6 +1,7 @@
 // routes/menuRoutes.js
 const express = require("express");
 const router = express.Router();
+const { authMiddleware } = require("../middleware/authMiddleware");
 const {
   createMenuItem,
   uploadMiddleware,
@@ -11,11 +12,11 @@ const {
   updateMenuStatus
 } = require("../controllers/NewMenuController");
 
-router.get("/menu/allmenues", getMenuItems);
-router.post("/menu/add", uploadMiddleware, createMenuItem);
-router.put('/menus/status', updateMenuStatus);
-router.put("/menu/update/:id", uploadMiddleware, updateMenuItem);
+router.get("/menu/allmenues", authMiddleware, getMenuItems);
+router.post("/menu/add", authMiddleware, uploadMiddleware, createMenuItem);
+router.put('/menus/status', authMiddleware, updateMenuStatus);
+router.put("/menu/update/:id", authMiddleware, uploadMiddleware, updateMenuItem);
 
-router.delete("/menu/delete/:id", hardDeleteMenuItem);
+router.delete("/menu/delete/:id", authMiddleware, hardDeleteMenuItem);
 
 module.exports = router;

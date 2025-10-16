@@ -74,6 +74,11 @@ module.exports = {
       });
 
       await user.save();
+      
+      // 🔥 Set restaurantId to user's own _id after user is created
+      user.restaurantId = user._id;
+      await user.save();
+      
       await UserProfile.create({
         userId: user._id,
         email: user.email,
@@ -158,7 +163,7 @@ module.exports = {
           userId: user._id,
           role: user.role,
           permissions: user.permissions || [],
-          restaurantId: profile?.restaurantId || null,
+          restaurantId: user.restaurantId || null,
           profileImage: profile?.profileImage || null,
         }
       });
@@ -359,6 +364,8 @@ module.exports = {
     try {
       const { role, permissions } = req.body;
       const { id } = req.params; // Get user ID from URL parameter
+      const currentUserId = req.userId; // Get current user's ID from middleware
+      
       const user = await User.findById(id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -375,11 +382,19 @@ module.exports = {
         }
       }
 
+      // 🔥 Update restaurantId to current user's _id when role is changed
+      // This ensures the user gets access to the same data as the admin who changed their role
+      if (role && currentUserId) {
+        user.restaurantId = currentUserId;
+        console.log(`🔄 Updated user ${user._id} restaurantId to ${currentUserId}`);
+      }
+
       await user.save();
       res.json({
         message: "User updated successfully",
         userId: user._id,
         role: user.role,
+        restaurantId: user.restaurantId,
         user,
       });
     } catch (err) {

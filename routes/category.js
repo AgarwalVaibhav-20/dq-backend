@@ -113,17 +113,37 @@ router.post(
 
 
 //fetching category
-router.get('/categories', async (req, res) => {
+router.get('/categories', authMiddleware, async (req, res) => {
   try {
-    const { restaurantId } = req.query; // ✅ take from query
+    console.log('🔍 Categories API Debug:');
+    console.log('req.query.restaurantId:', req.query.restaurantId);
+    console.log('req.userId:', req.userId);
+    console.log('req.user:', req.user);
+    console.log('req.user.restaurantId:', req.user?.restaurantId);
+    console.log('req.user._id:', req.user?._id);
+    
+    // 🔥 ALWAYS use req.userId (which is now ONLY restaurantId)
+    const restaurantId = req.userId;
+    console.log('Final restaurantId used:', restaurantId);
+    console.log('restaurantId type:', typeof restaurantId);
+    console.log('restaurantId toString:', restaurantId?.toString());
+    console.log('✅ Using ONLY restaurantId from user collection');
+    
     if (!restaurantId) {
+      console.log('❌ No restaurantId found');
       return res.status(400).json({ message: 'restaurantId is required' });
     }
 
+    console.log('🔍 Database Query:');
+    console.log('Filter:', { isDeleted: false, restaurantId });
+    
     const categories = await Category.find({ isDeleted: false, restaurantId });
+    console.log('✅ Categories found:', categories.length);
+    console.log('Categories data:', categories);
+    
     res.json({ data: categories });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Categories API Error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

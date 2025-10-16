@@ -251,10 +251,21 @@ exports.uploadMiddleware = upload.single("itemImage");
 // ---------------- GET ALL MENU ITEMS ----------------
 exports.getMenuItems = async (req, res) => {
   try {
-    const { restaurantId } = req.query;
-    console.log("🔍 Backend getMenuItems called with restaurantId:", restaurantId);
+    console.log('🔍 Menu API Debug:');
+    console.log('req.query.restaurantId:', req.query.restaurantId);
+    console.log('req.userId:', req.userId);
+    console.log('req.user:', req.user);
+    console.log('req.user.restaurantId:', req.user?.restaurantId);
+    console.log('req.user._id:', req.user?._id);
+    
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    console.log("🔍 Final restaurantId used:", restaurantId);
+    console.log("🔍 restaurantId type:", typeof restaurantId);
+    console.log("🔍 restaurantId toString:", restaurantId?.toString());
+    console.log("✅ Using ONLY restaurantId from user collection");
 
-    // Build query filter
+    // Build query filter - find menu items with same restaurantId
     let filter = {};
     if (restaurantId) {
       filter.restaurantId = restaurantId;

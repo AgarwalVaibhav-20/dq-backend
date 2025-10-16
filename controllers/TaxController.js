@@ -8,7 +8,8 @@ const errorResponse = (message, statusCode) => generateResponse(false, message, 
 // Get all taxes for a restaurant
 const getTaxes = async (req, res) => {
   try {
-    const restaurantId = req.query.restaurantId || req.body.restaurantId
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId
 
     if (!restaurantId) {
       return res.status(400).json(errorResponse('Restaurant ID is required', 400))
@@ -32,8 +33,9 @@ const createTax = async (req, res) => {
     console.log('Tax creation request:', req.body)
     console.log('Request user:', req.user)
     
-    const restaurantId = req.query.restaurantId || req.body.restaurantId
-    const userId = req.user?._id
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId
+    const userId = req.userId
     
     if (!userId) {
       console.log('No user ID found in request')
@@ -90,7 +92,7 @@ const createTax = async (req, res) => {
 const deleteTaxById = async (req, res) => {
   try {
     const { id } = req.params
-    const userId = req.user?._id
+    const userId = req.userId
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401))
@@ -113,7 +115,7 @@ const deleteTaxById = async (req, res) => {
 const updateTaxById = async (req, res) => {
   try {
     const { id } = req.params
-    const userId = req.user?._id
+    const userId = req.userId
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401))

@@ -269,7 +269,8 @@ exports.createReservation = async (req, res) => {
 // 📌 Get all reservations (Admin/Manager)
 exports.getAllReservations = async (req, res) => {
   try {
-    const restaurantId = req.query.restaurantId || req.userId;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
 
     console.log("🔍 Searching for reservations with restaurantId:", restaurantId);
 

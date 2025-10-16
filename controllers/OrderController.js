@@ -46,8 +46,8 @@ exports.createOrder = async (req, res) => {
     }
 
     // Use restaurantId from request or from authenticated user
-    const finalRestaurantId = restaurantId || req.user._id;
-    const finalUserId = userId || req.user._id;
+    const finalRestaurantId = restaurantId || req.userId;
+    const finalUserId = userId || req.userId;
 
     console.log("Final restaurantId:", finalRestaurantId);
     console.log("Final userId:", finalUserId);
@@ -213,8 +213,8 @@ exports.getAllOrders = async (req, res) => {
     console.log("=== FETCHING ALL ORDERS ===");
     console.log("User from auth middleware:", req.user);
     
-    // Get restaurantId from query or use authenticated user's ID
-    const restaurantId = req.query.restaurantId || req.user?._id;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
     
     let query = {};
     if (restaurantId) {
@@ -258,8 +258,8 @@ exports.getAllOrders = async (req, res) => {
 
 exports.getActiveTables = async (req, res) => {
   try {
-    // Get restaurantId from query or body
-    const restaurantId = req.query.restaurantId || req.body.restaurantId;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
 
     if (!restaurantId) {
       return res.status(400).json({ message: 'restaurantId is required' });

@@ -8,7 +8,7 @@ const errorResponse = (message, statusCode) => generateResponse(false, message, 
 // Test email configuration
 const testEmailConfiguration = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));
@@ -52,7 +52,7 @@ const testEmailConfiguration = async (req, res) => {
 // Send test email
 const sendTestEmail = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const userId = req.userId;
     const { testEmail } = req.body;
     
     if (!userId) {

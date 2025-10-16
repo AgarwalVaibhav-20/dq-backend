@@ -22,6 +22,7 @@ const getAllRestaurants = async (req, res) => {
         const { page = 1, limit = 10, status, city, cuisine, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
         const filter = {};
 
+        // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
         filter.restaurantId = req.userId
 
         if (status) filter.status = status;
@@ -92,7 +93,7 @@ const createRestaurant = async (req, res) => {
         if (handleValidationErrors(req, res)) return;
 
         const restaurantData = parseRestaurantData(req.body, req.file);
-        restaurantData.restaurantId = req.user._id;
+        restaurantData.restaurantId = req.userId;
 
         const restaurant = new Restaurant(restaurantData);
         await restaurant.save();

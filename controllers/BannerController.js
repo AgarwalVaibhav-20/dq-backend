@@ -34,10 +34,17 @@ exports.createBanner = (req, res) => {
     }
 
     try {
-      // ✅ get restaurantId safely from user or request body
-      const restaurantId =
-        req.userId || req.user?.restaurantId || req.user?._id || req.body.restaurantId;
-      console.log(restaurantId, "restaurant id")
+      console.log('🔍 Banner Creation Debug:');
+      console.log('req.body.restaurantId:', req.body.restaurantId);
+      console.log('req.userId:', req.userId);
+      console.log('req.user:', req.user);
+      console.log('req.user.restaurantId:', req.user?.restaurantId);
+      console.log('req.user._id:', req.user?._id);
+      
+      // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+      const restaurantId = req.userId;
+      console.log("🔍 Final restaurantId used for creation:", restaurantId);
+      console.log("✅ Using ONLY restaurantId from user collection for creation");
 
       if (!restaurantId) {
         return res.status(400).json({
@@ -91,7 +98,19 @@ exports.createBanner = (req, res) => {
 
 exports.getBanners = async (req, res) => {
   try {
-    const { restaurantId } = req.query;
+    console.log('🔍 Banner API Debug:');
+    console.log('req.query.restaurantId:', req.query.restaurantId);
+    console.log('req.userId:', req.userId);
+    console.log('req.user:', req.user);
+    console.log('req.user.restaurantId:', req.user?.restaurantId);
+    console.log('req.user._id:', req.user?._id);
+    
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    console.log("🔍 Final restaurantId used:", restaurantId);
+    console.log("🔍 restaurantId type:", typeof restaurantId);
+    console.log("🔍 restaurantId toString:", restaurantId?.toString());
+    console.log("✅ Using ONLY restaurantId from user collection");
 
     let banners;
     if (restaurantId) {

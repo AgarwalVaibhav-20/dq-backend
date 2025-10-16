@@ -5,7 +5,8 @@ exports.createCoupon = async (req, res) => {
   try {
     const coupon = new Coupon({
       ...req.body,
-      createdBy: req.user?._id,
+      createdBy: req.userId,
+      restaurantId: req.userId, // Set restaurantId to current user's ID
     });
     await coupon.save();
 
@@ -27,10 +28,11 @@ exports.createCoupon = async (req, res) => {
 // ➤ Get all coupons (with pagination + filter)
 exports.getCoupons = async (req, res) => {
   try {
-    const { restaurantId, isActive, page = 1, limit = 10 } = req.query;
+    const { isActive, page = 1, limit = 10 } = req.query;
 
-    const filter = {};
-    if (restaurantId) filter.restaurantId = restaurantId;
+    const filter = {
+      restaurantId: req.userId // Only get coupons for current user's restaurant
+    };
     if (isActive !== undefined) filter.isActive = isActive === "true";
 
     const coupons = await Coupon.find(filter)
@@ -63,7 +65,10 @@ exports.getCoupons = async (req, res) => {
 // ➤ Get single coupon by ID
 exports.getCouponById = async (req, res) => {
   try {
-    const coupon = await Coupon.findById(req.params.id);
+    const coupon = await Coupon.findOne({ 
+      _id: req.params.id, 
+      restaurantId: req.userId 
+    });
     if (!coupon) {
       return res.status(404).json({
         success: false,
@@ -94,7 +99,8 @@ exports.validateCouponByCode = async (req, res) => {
 
     const coupon = await Coupon.findOne({ 
       code: couponCode.toUpperCase(),
-      isActive: true 
+      isActive: true,
+      restaurantId: req.userId // Only validate coupons for current user's restaurant
     });
 
     if (!coupon) {
@@ -155,7 +161,10 @@ exports.applyCoupon = async (req, res) => {
   try {
     const { couponId, orderTotal } = req.body;
 
-    const coupon = await Coupon.findById(couponId);
+    const coupon = await Coupon.findOne({ 
+      _id: couponId,
+      restaurantId: req.userId // Only apply coupons for current user's restaurant
+    });
     if (!coupon) {
       return res.status(404).json({
         success: false,
@@ -203,8 +212,8 @@ exports.applyCoupon = async (req, res) => {
 // ➤ Update coupon
 exports.updateCoupon = async (req, res) => {
   try {
-    const coupon = await Coupon.findByIdAndUpdate(
-      req.params.id,
+    const coupon = await Coupon.findOneAndUpdate(
+      { _id: req.params.id, restaurantId: req.userId },
       req.body,
       { new: true }
     );
@@ -232,7 +241,10 @@ exports.updateCoupon = async (req, res) => {
 // ➤ Delete coupon
 exports.deleteCoupon = async (req, res) => {
   try {
-    const coupon = await Coupon.findByIdAndDelete(req.params.id);
+    const coupon = await Coupon.findOneAndDelete({ 
+      _id: req.params.id, 
+      restaurantId: req.userId 
+    });
 
     if (!coupon) {
       return res.status(404).json({

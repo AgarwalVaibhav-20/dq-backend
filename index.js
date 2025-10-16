@@ -33,9 +33,11 @@ const customerSettingsRoutes = require('./routes/customerSettings.js');
 const inventoryStockSettingsRoutes = require('./routes/inventoryStockSettingsRoute.js');
 const lowStockRoutes = require('./routes/lowStockRoute.js');
 const emailTestRoutes = require('./routes/emailTestRoute.js');
+const debugRoute = require('./routes/debugRoute.js');
 const { startCronJobs } = require('./services/CronJobService');
 const { initializeAutoEmailService } = require('./services/AutoEmailService');
 const Waste = require('./routes/WasteRoute.js')
+const notificationRoute = require('./routes/notificationRoute.js')
 dotenv.config();
 
 const app = express();
@@ -114,6 +116,8 @@ app.use("/api/customer-settings", customerSettingsRoutes);
 app.use("/api/inventory-stock-settings", inventoryStockSettingsRoutes);
 app.use("/api/low-stock", lowStockRoutes);
 app.use("/api/email-test", emailTestRoutes);
+app.use("/api/debug", debugRoute);
+app.use("/api/notifications", notificationRoute);
 app.use(uploadRoute);
 // Start cron jobs
 startCronJobs();

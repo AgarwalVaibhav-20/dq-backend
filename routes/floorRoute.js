@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const { addFloor, getFloors } = require("../controllers/FloorController");
+const { authMiddleware } = require('../middleware/authMiddleware');
 
-router.post("/add/floors/:id", addFloor);
+router.post("/add/floors/:id", authMiddleware, addFloor);
 
 // router.post("/add/floors", addFloor);
-router.get("/get/floors/:restaurantId", getFloors);
+router.get("/get/floors/:restaurantId", authMiddleware, getFloors);
 
 module.exports = router;
 

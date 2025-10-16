@@ -5,7 +5,19 @@ const SubCategory = require("../model/SubCategory");
 // ---------------- CREATE SUBCATEGORY ----------------
 exports.createSubCategory = async (req, res) => {
   try {
-    const { sub_category_name, categoryName, categoryId, restaurantId } = req.body;
+    console.log('🔍 SubCategory Creation Debug:');
+    console.log('req.body.restaurantId:', req.body.restaurantId);
+    console.log('req.userId:', req.userId);
+    console.log('req.user:', req.user);
+    console.log('req.user.restaurantId:', req.user?.restaurantId);
+    console.log('req.user._id:', req.user?._id);
+    
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    console.log("🔍 Final restaurantId used for creation:", restaurantId);
+    console.log("✅ Using ONLY restaurantId from user collection for creation");
+    
+    const { sub_category_name, categoryName, categoryId } = req.body;
 
     if (!sub_category_name || !categoryId || !restaurantId) {
       return res.status(400).json({ message: "sub_category_name, categoryId, and restaurantId are required" });
@@ -48,7 +60,21 @@ exports.createSubCategory = async (req, res) => {
 // ---------------- FETCH SUBCATEGORIES ----------------
 exports.getSubCategories = async (req, res) => {
   try {
-    const { restaurantId, categoryId } = req.query;
+    console.log('🔍 SubCategory API Debug:');
+    console.log('req.query.restaurantId:', req.query.restaurantId);
+    console.log('req.userId:', req.userId);
+    console.log('req.user:', req.user);
+    console.log('req.user.restaurantId:', req.user?.restaurantId);
+    console.log('req.user._id:', req.user?._id);
+    
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    console.log("🔍 Final restaurantId used:", restaurantId);
+    console.log("🔍 restaurantId type:", typeof restaurantId);
+    console.log("🔍 restaurantId toString:", restaurantId?.toString());
+    console.log("✅ Using ONLY restaurantId from user collection");
+
+    const { categoryId } = req.query;
 
     const filter = {};
     if (restaurantId) filter.restaurantId = restaurantId;

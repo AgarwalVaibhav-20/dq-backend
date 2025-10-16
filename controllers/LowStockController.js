@@ -11,7 +11,7 @@ const errorResponse = (message, statusCode) => generateResponse(false, message, 
 const triggerLowStockCheckManual = async (req, res) => {
   try {
     const { restaurantId } = req.query;
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));
@@ -37,7 +37,7 @@ const triggerLowStockCheckManual = async (req, res) => {
 const getLowStockItemsForRestaurant = async (req, res) => {
   try {
     const { restaurantId } = req.query;
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));
@@ -71,7 +71,7 @@ const getCronJobStatusController = async (req, res) => {
 const debugSystemStatus = async (req, res) => {
   try {
     const { restaurantId } = req.query;
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));
@@ -176,7 +176,7 @@ const debugSystemStatus = async (req, res) => {
 const testLowStockWithThreshold = async (req, res) => {
   try {
     const { restaurantId, testThreshold } = req.query;
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));
@@ -248,7 +248,7 @@ const testLowStockWithThreshold = async (req, res) => {
 const triggerAutoEmailCheck = async (req, res) => {
   try {
     const { restaurantId } = req.query;
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));
@@ -277,7 +277,7 @@ const triggerAutoEmailCheck = async (req, res) => {
 // Immediate email test for all restaurants
 const triggerImmediateEmailTest = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));
@@ -306,7 +306,7 @@ const triggerImmediateEmailTest = async (req, res) => {
 const debugUserEmailLookup = async (req, res) => {
   try {
     const { restaurantId } = req.query;
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));
@@ -403,7 +403,7 @@ const testEmailToUser = async (req, res) => {
     // console.log('Request user:', req.user);
 
     const { restaurantId } = req.query;
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       // console.log('❌ User not authenticated');

@@ -38,19 +38,36 @@ exports.addTable = async (req, res) => {
 // Get all QR codes (with optional filters)
 exports.getQrs = async (req, res) => {
   try {
-    const { restaurantId, floorId } = req.query;
+    console.log('🔍 QR API Debug:');
+    console.log('req.query.restaurantId:', req.query.restaurantId);
+    console.log('req.userId:', req.userId);
+    console.log('req.user:', req.user);
+    console.log('req.user.restaurantId:', req.user?.restaurantId);
+    console.log('req.user._id:', req.user?._id);
+    
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    console.log("🔍 Final restaurantId used:", restaurantId);
+    console.log("🔍 restaurantId type:", typeof restaurantId);
+    console.log("🔍 restaurantId toString:", restaurantId?.toString());
+    console.log("✅ Using ONLY restaurantId from user collection");
 
-    let filter = {};
-    if (restaurantId) filter.restaurantId = restaurantId;
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required"
+      });
+    }
+
+    const { floorId } = req.query;
+
+    let filter = { restaurantId };
     if (floorId) filter.floorId = floorId;
-
 
     const qrs = await QrCode.find(filter).populate("floorId");
 
-
     res.status(200).json({ success: true, data: qrs });
   } catch (error) {
-
     console.error("getQrs error:", error);
     res.status(500).json({ success: false, message: error.message });
   }

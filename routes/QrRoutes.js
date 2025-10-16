@@ -1,10 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const QrController = require("../controllers/QrControllers");
+const { authMiddleware } = require('../middleware/authMiddleware');
 
-router.post("/create/qrcode", QrController.addTable);
+router.post("/create/qrcode", authMiddleware, QrController.addTable);
 
-router.get("/qrcodes/all", QrController.getQrs);
+router.get("/qrcodes/all", authMiddleware, QrController.getQrs);
 
 router.get("/:id", QrController.getQrById);
 

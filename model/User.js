@@ -30,6 +30,13 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "manager", "waiter", "cashier"],
       default: "admin",
     },
+    restaurantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: function() {
+        return this._id;
+      }
+    },
     isVerified: { type: Boolean, default: false },
     verifyOTP: { type: String },
 

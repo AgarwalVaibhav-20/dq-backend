@@ -34,7 +34,7 @@ const getInventoryStockSettings = async (req, res) => {
 const createOrUpdateInventoryStockSettings = async (req, res) => {
   try {
     const { restaurantId, lowStockThreshold } = req.body;
-    const userId = req.user?._id;
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401));

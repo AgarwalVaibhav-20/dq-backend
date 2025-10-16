@@ -245,37 +245,37 @@ exports.createTransaction = async (req, res) => {
     }
 
     // Credit reward points to customer if customerId is provided
-    // ✅ Credit reward points only if customerId is valid
-if (customerId && customerId !== "undefined" && mongoose.Types.ObjectId.isValid(customerId)) {
-  try {
-    const Menu = require("../model/Menu");
-    const Customer = require("../model/Customer");
+    if (customerId) {
+      try {
+        const Menu = require("../model/Menu");
+        const Customer = require("../model/Customer");
 
-    let totalRewardPoints = 0;
+        // Calculate total reward points from all items in the transaction
+        let totalRewardPoints = 0;
 
-    for (const item of processedItems) {
-      const menuItem = await Menu.findById(item.itemId);
-      if (menuItem && menuItem.rewardPoints) {
-        totalRewardPoints += menuItem.rewardPoints * item.quantity;
+        for (const item of processedItems) {
+          // Find the menu item to get its reward points
+          const menuItem = await Menu.findById(item.itemId);
+          if (menuItem && menuItem.rewardPoints) {
+            totalRewardPoints += menuItem.rewardPoints * item.quantity;
+          }
+        }
+
+        // Update customer's earned points if there are reward points to credit
+        if (totalRewardPoints > 0) {
+          await Customer.findByIdAndUpdate(
+            customerId,
+            { $inc: { earnedPoints: totalRewardPoints } },
+            { new: true }
+          );
+
+          console.log(`Credited ${totalRewardPoints} reward points to customer ${customerId}`);
+        }
+      } catch (rewardError) {
+        console.error("Error crediting reward points:", rewardError);
+        // Don't fail the transaction if reward points fail
       }
     }
-
-    if (totalRewardPoints > 0) {
-      await Customer.findByIdAndUpdate(
-        customerId,
-        { $inc: { earnedPoints: totalRewardPoints } },
-        { new: true }
-      );
-
-      console.log(`✅ Credited ${totalRewardPoints} reward points to customer ${customerId}`);
-    }
-  } catch (rewardError) {
-    console.error("Error crediting reward points:", rewardError);
-  }
-} else {
-  console.log("⚠️ No customer selected — skipping reward points logic.");
-}
-
 
     res.status(201).json({
       success: true,
@@ -297,8 +297,8 @@ exports.getAllTransactions = async (req, res) => {
   try {
     console.log('=== BACKEND: getAllTransactions CALLED ===');
 
-    // ✅ Get restaurantId from query or from user context
-    const restaurantId = req.query.restaurantId || req.userId;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
 
     if (!restaurantId) {
       return res.status(400).json({
@@ -351,7 +351,19 @@ exports.getAllTransactions = async (req, res) => {
 // ---------------- GET TRANSACTIONS BY RESTAURANT ----------------
 exports.getTransactionsByRestaurant = async (req, res) => {
   try {
-    const { restaurantId } = req.params;
+    console.log('🔍 Transaction by Restaurant API Debug:');
+    console.log('req.params.restaurantId:', req.params.restaurantId);
+    console.log('req.userId:', req.userId);
+    console.log('req.user:', req.user);
+    console.log('req.user.restaurantId:', req.user?.restaurantId);
+    console.log('req.user._id:', req.user?._id);
+    
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    console.log("🔍 Final restaurantId used:", restaurantId);
+    console.log("🔍 restaurantId type:", typeof restaurantId);
+    console.log("🔍 restaurantId toString:", restaurantId?.toString());
+    console.log("✅ Using ONLY restaurantId from user collection");
 
     if (!restaurantId) {
       return res.status(400).json({
@@ -539,8 +551,12 @@ exports.deleteTransaction = async (req, res) => {
 // ---------------- GET TRANSACTIONS BY CUSTOMER ----------------
 exports.getTransactionByCustomer = async (req, res) => {
   try {
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    
     const transactions = await Transaction.find({
       customerId: req.params.id,
+      restaurantId,
       isDeleted: { $ne: true },
     }).sort({ createdAt: -1 });
 
@@ -571,8 +587,12 @@ exports.getTransactionsByPaymentType = async (req, res) => {
       });
     }
 
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    
     const transactions = await Transaction.find({
       type,
+      restaurantId,
       isDeleted: { $ne: true },
     }).sort({ createdAt: -1 });
 
@@ -594,7 +614,11 @@ exports.getTransactionsByPaymentType = async (req, res) => {
 // ---------------- GET POS TRANSACTIONS ----------------
 exports.getPOSTransactions = async (req, res) => {
   try {
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    
     const transactions = await Transaction.find({
+      restaurantId,
       isDeleted: { $ne: true },
     })
       .populate("userId", "username email fullName")

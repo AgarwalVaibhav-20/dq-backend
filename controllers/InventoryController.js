@@ -287,7 +287,8 @@ exports.getInventory = async (req, res) => {
   try {
     console.log('=== BACKEND API CALLED ===');
 
-    const restaurantId = req.query.restaurantId || req.userId;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
 
     if (!restaurantId) {
       return res.status(400).json({ message: "Restaurant ID is required" });

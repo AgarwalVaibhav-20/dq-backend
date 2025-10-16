@@ -33,8 +33,14 @@ const authMiddleware = (req, res, next) => {
       }
 
       console.log('User found:', user._id);
+      console.log('User restaurantId:', user.restaurantId);
+      console.log('User restaurantId type:', typeof user.restaurantId);
+      console.log('User restaurantId toString:', user.restaurantId?.toString());
       req.user = user;
-      req.userId = user._id;  
+      // 🔥 ALWAYS use restaurantId, never fallback to _id
+      req.userId = user.restaurantId;
+      console.log('Final req.userId set to:', req.userId);
+      console.log('⚠️ Using ONLY restaurantId, no fallback to _id');
       next();
     });
   } catch (err) {

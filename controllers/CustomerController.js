@@ -64,7 +64,7 @@ exports.addRewardPoints = async (req, res) => {
     const { id } = req.params;
     const { pointsToAdd } = req.body;
 
-    console.log(`🎁 Adding ${pointsToAdd} reward points to customer ${id}`);
+    console.log("🎁 Adding ${pointsToAdd} reward points to customer ${id}");
 
     // Validate input
     if (!pointsToAdd || pointsToAdd < 0) {
@@ -91,11 +91,11 @@ exports.addRewardPoints = async (req, res) => {
     // Save updated customer
     await customer.save();
 
-    console.log(`✅ Customer ${customer.name} now has ${customer.rewardCustomerPoints} points`);
+    console.log(" Customer ${customer.name} now has ${customer.rewardCustomerPoints} points");
 
     res.status(200).json({
       success: true,
-      message: `Successfully added ${pointsToAdd} reward points`,
+      message: "Successfully added ${pointsToAdd} reward points",
       data: {
         customerId: customer._id,
         customerName: customer.name,
@@ -119,7 +119,7 @@ exports.deductRewardPoints = async (req, res) => {
     const { id } = req.params;
     const { pointsToDeduct } = req.body;
 
-    console.log(`🎁 Deducting ${pointsToDeduct} reward points from customer ${id}`);
+    console.log(" Deducting ${pointsToDeduct} reward points from customer ${id}");
 
     // Validate input
     if (!pointsToDeduct || pointsToDeduct <= 0) {
@@ -144,7 +144,7 @@ exports.deductRewardPoints = async (req, res) => {
     if (currentPoints < pointsToDeduct) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient reward points. Customer has ${currentPoints} points, but trying to deduct ${pointsToDeduct} points.`
+        message: "Insufficient reward points. Customer has ${currentPoints} points, but trying to deduct ${pointsToDeduct} points."
       });
     }
 
@@ -152,11 +152,11 @@ exports.deductRewardPoints = async (req, res) => {
     customer.rewardCustomerPoints = currentPoints - pointsToDeduct;
     await customer.save();
 
-    console.log(`✅ Customer ${customer.name} now has ${customer.rewardCustomerPoints} points`);
+    console.log("Customer ${customer.name} now has ${customer.rewardCustomerPoints} points");
 
     res.status(200).json({
       success: true,
-      message: `Successfully deducted ${pointsToDeduct} reward points`,
+      message: "Successfully deducted ${pointsToDeduct} reward points",
       data: {
         customerId: customer._id,
         customerName: customer.name,
@@ -177,7 +177,8 @@ exports.deductRewardPoints = async (req, res) => {
 // 📌 Get All Customers
 exports.getAllCustomers = async (req, res) => {
   try {
-    const { restaurantId } = req.query;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
     const filter = restaurantId ? { restaurantId } : {};
     const customers = await Customer.find(filter)
 
@@ -197,7 +198,8 @@ exports.getAllCustomers = async (req, res) => {
 exports.getAllCustomersForReservation = async (req, res) => {
   try {
     console.log("🔍 Fetching ALL customers for reservation dropdown...");
-    const { restaurantId } = req.query;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
     const customers = await Customer.find({ restaurantId }).populate('membershipId');;
     console.log("📊 Total customers found:", customers.length);
     res.json(customers);
@@ -351,7 +353,7 @@ exports.calculateCustomerTotalSpent = async (req, res) => {
     }
 
     res.json({
-      message: `Successfully updated total spent for ${updatedCount} customers`,
+      message: "Successfully updated total spent for ${updatedCount} customers",
       updatedCount
     });
   } catch (err) {
@@ -395,6 +397,6 @@ exports.calculateSingleCustomerTotalSpent = async (req, res) => {
     });
   } catch (err) {
     console.error("Error calculating single customer total spent:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message});
   }
 };

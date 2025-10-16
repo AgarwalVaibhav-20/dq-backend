@@ -8,7 +8,8 @@ const errorResponse = (message, statusCode) => generateResponse(false, message, 
 // Get all settings for a restaurant
 const getSettings = async (req, res) => {
   try {
-    const restaurantId = req.query.restaurantId || req.body.restaurantId
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId
 
     if (!restaurantId) {
       return res.status(400).json(errorResponse('Restaurant ID is required', 400))
@@ -32,8 +33,9 @@ const createOrUpdateSettings = async (req, res) => {
     console.log('Settings creation request:', req.body)
     console.log('Request user:', req.user)
     
-    const restaurantId = req.query.restaurantId || req.body.restaurantId
-    const userId = req.user?._id
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId
+    const userId = req.userId
     
     if (!userId) {
       console.log('No user ID found in request')
@@ -87,7 +89,7 @@ const createOrUpdateSettings = async (req, res) => {
 const deleteSettingsById = async (req, res) => {
   try {
     const { id } = req.params
-    const userId = req.user?._id
+    const userId = req.userId
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401))
@@ -110,7 +112,7 @@ const deleteSettingsById = async (req, res) => {
 const updateSettingsById = async (req, res) => {
   try {
     const { id } = req.params
-    const userId = req.user?._id
+    const userId = req.userId
     
     if (!userId) {
       return res.status(401).json(errorResponse('User not authenticated', 401))

@@ -3,7 +3,8 @@ const Supplier = require("../model/Supplier");
 // Get all suppliers
 exports.getSuppliers = async (req, res) => {
   try {
-    const restaurantId = req.query.restaurantId || req.userId;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
 
     if (!restaurantId) {
       return res.status(400).json({ message: "Restaurant ID is required" });
@@ -74,12 +75,11 @@ exports.updateSupplier = async (req, res) => {
 };
 
 // Delete supplier
-// controllers/supplierController.js
 exports.deleteSupplier = async (req, res) => {
   try {
-    const restaurantId = req.user.restaurantId;
+    const supplierId = req.params.id;
 
-    const supplier = await Supplier.findByIdAndDelete(restaurantId);
+    const supplier = await Supplier.findByIdAndDelete(supplierId);
 
     if (!supplier) {
       return res.status(404).json({ message: "Supplier not found" });

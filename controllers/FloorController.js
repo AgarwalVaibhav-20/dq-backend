@@ -47,11 +47,31 @@ exports.addFloor = async (req, res) => {
 // ✅ Get all floors for a restaurant
 exports.getFloors = async (req, res) => {
   try {
-    const { restaurantId } = req.params;
+    console.log('🔍 Floor API Debug:');
+    console.log('req.params.restaurantId:', req.params.restaurantId);
+    console.log('req.userId:', req.userId);
+    console.log('req.user:', req.user);
+    console.log('req.user.restaurantId:', req.user?.restaurantId);
+    console.log('req.user._id:', req.user?._id);
+    
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+    console.log("🔍 Final restaurantId used:", restaurantId);
+    console.log("🔍 restaurantId type:", typeof restaurantId);
+    console.log("🔍 restaurantId toString:", restaurantId?.toString());
+    console.log("✅ Using ONLY restaurantId from user collection");
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required"
+      });
+    }
 
     const floors = await Floor.find({ restaurantId });
     res.status(200).json({ success: true, data: floors });
   } catch (error) {
+    console.error("Get floors error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

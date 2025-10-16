@@ -44,7 +44,8 @@ exports.createDueTransaction = async (req, res) => {
 // ---------------- GET ALL DUE TRANSACTIONS ----------------
 exports.getAllDueTransactions = async (req, res) => {
   try {
-    const restaurantId = req.query.restaurantId || req.userId;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
 
     if (!restaurantId) {
       return res.status(400).json({ message: "Restaurant ID is required" });
@@ -263,8 +264,8 @@ exports.getDueTransactionsByCustomer = async (req, res) => {
       });
     }
 
-    // Optional: accept restaurantId if you want to filter by restaurant
-    const restaurantId = req.query.restaurantId;
+    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
     const filter = { customer_id };
     if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {
       filter.restaurantId = restaurantId;

@@ -35,7 +35,7 @@ exports.createMember = async (req, res) => {
       notes,
     } = req.body;
 
-    const restaurantId = req.user?._id || req.body.restaurantId; // ✅ handle both
+    const restaurantId = req.userId || req.body.restaurantId; // ✅ handle both
 
     if (!minSpend || !membershipName || !discount) {
       return res.status(400).json({ message: "Required fields missing" });

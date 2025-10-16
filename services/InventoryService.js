@@ -18,6 +18,8 @@ const convertUnits = (quantity, fromUnit, toUnit) => {
     'kg': 1000,     // 1 kg = 1000 g
     'ml': 1,        // 1 ml = 1 ml (for liquids)
     'litre': 1000,  // 1 litre = 1000 ml
+    'liter': 1000,  // 1 liter = 1000 ml
+    'ltr': 1000,    // 1 ltr = 1000 ml
     'pcs': 1        // 1 piece = 1 piece
   };
 

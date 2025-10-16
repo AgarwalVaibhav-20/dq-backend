@@ -55,7 +55,9 @@ const couponSchema = new mongoose.Schema(
     },
     
     restaurantId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
     },
     
     customerId: {
