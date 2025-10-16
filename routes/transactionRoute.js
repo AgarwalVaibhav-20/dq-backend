@@ -31,6 +31,18 @@ router.post("/cashout", authMiddleware, async (req, res) => {
     TransactionController.createCashTransaction(req, res);
 });
 
+
+router.post("/bankin", authMiddleware, async (req, res) => {
+    req.body.type = "bank_in";  
+    TransactionController.createCashTransaction(req, res);
+});
+
+ 
+router.post("/bankout", authMiddleware, async (req, res) => {
+    req.body.type = "bank_out";  
+    TransactionController.createCashTransaction(req, res);
+});
+
 module.exports = router;
 
 

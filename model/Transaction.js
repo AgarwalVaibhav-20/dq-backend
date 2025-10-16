@@ -165,7 +165,7 @@ const transactionSchema = new mongoose.Schema(
     // Payment details
     type: {
       type: String,
-      enum: ['Cash', 'Online', 'Card', 'Split', 'CashIn', 'CashOut'],
+      enum: ['Cash', 'Online', 'Card', 'Split', 'CashIn', 'CashOut','bank_in', 'bank_out'],
       required: true,
     },
 

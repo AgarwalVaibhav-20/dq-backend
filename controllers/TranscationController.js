@@ -13,7 +13,7 @@ exports.createCashTransaction = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields: restaurantId, userId, total, type" });
     }
 
-    if (type !== 'CashIn' && type !== 'CashOut') {
+    if (type !== 'CashIn' && type !== 'CashOut' && type !== 'bank_in' && type !== 'bank_out') {
       return res.status(400).json({ success: false, message: "Invalid transaction type for cash transaction." });
     }
 
@@ -78,7 +78,7 @@ exports.getDailyCashBalance = async (req, res) => {
       {
         $match: {
           ...matchQuery,
-          type: { $in: ['Cash', 'Online', 'Card', 'Split', 'CashIn', 'CashOut'] }
+          type: { $in: ['Cash', 'Online', 'Card', 'Split', 'CashIn', 'CashOut', 'bank_in', 'bank_out'] }
         }
       },
       {
