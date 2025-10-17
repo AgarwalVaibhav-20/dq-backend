@@ -52,7 +52,7 @@ router.post('/create/adding/inventories', authMiddleware, inventoryController.ad
  * @params  id - Inventory item ID
  * @body    { unit: string }
  */
-router.put('/update/:id', authMiddleware, inventoryController.updateInventory);
+router.put('/update/stock/:id', authMiddleware, inventoryController.updateInventory);
 
 /**
  * @route   DELETE /api/delete/:id

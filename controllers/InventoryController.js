@@ -1,4 +1,3 @@
-
 const Inventory = require("../model/Inventory");
 const Supplier = require("../model/Supplier");
 
@@ -208,14 +207,15 @@ exports.deleteInventory = async (req, res) => {
   }
 };
 
-// ==================== DEDUCT STOCK (FIFO METHOD) ====================
+// ==================== DEDUCT STOCK WITH UNIT CONVERSION ====================
 exports.deductStock = async (req, res) => {
   try {
-    const { itemId, quantityToDeduct } = req.body;
+    const { itemId, quantityToDeduct, unit } = req.body; // ✅ ADD unit parameter
 
     console.log('=== DEDUCT STOCK (FIFO) ===');
     console.log('Item ID:', itemId);
     console.log('Quantity to deduct:', quantityToDeduct);
+    console.log('Unit:', unit);
 
     // Validate inputs
     if (!itemId || !quantityToDeduct) {
@@ -236,15 +236,45 @@ exports.deductStock = async (req, res) => {
       return res.status(404).json({ message: "Item not found" });
     }
 
+    // ✅ CONVERT UNIT BEFORE DEDUCTION
+    const inventoryBaseUnit = item.unit.toLowerCase();
+    const deductionUnit = (unit || inventoryBaseUnit).toLowerCase();
+    
+    let convertedQuantity = quantityToDeduct;
+    
+    // Weight conversion
+    if (['kg', 'gm', 'mg'].includes(inventoryBaseUnit) && ['kg', 'gm', 'mg'].includes(deductionUnit)) {
+      const toBaseUnit = {
+        'kg': { 'kg': 1, 'gm': 0.001, 'mg': 0.000001 },
+        'gm': { 'kg': 1000, 'gm': 1, 'mg': 0.001 },
+        'mg': { 'kg': 1000000, 'gm': 1000, 'mg': 1 }
+      };
+      convertedQuantity = quantityToDeduct * toBaseUnit[inventoryBaseUnit][deductionUnit];
+    }
+    
+    // Volume conversion
+    if (['ltr', 'litre', 'ml'].includes(inventoryBaseUnit) && ['ltr', 'litre', 'ml'].includes(deductionUnit)) {
+      const toBaseUnit = {
+        'ltr': { 'ltr': 1, 'litre': 1, 'ml': 0.001 },
+        'litre': { 'ltr': 1, 'litre': 1, 'ml': 0.001 },
+        'ml': { 'ltr': 1000, 'litre': 1000, 'ml': 1 }
+      };
+      const normalizedBase = inventoryBaseUnit === 'litre' ? 'ltr' : inventoryBaseUnit;
+      const normalizedDeduct = deductionUnit === 'litre' ? 'ltr' : deductionUnit;
+      convertedQuantity = quantityToDeduct * toBaseUnit[normalizedBase][normalizedDeduct];
+    }
+
+    console.log(`Converting ${quantityToDeduct} ${deductionUnit} to ${convertedQuantity} ${inventoryBaseUnit}`);
+
     // Check if sufficient stock is available
-    if (item.totalRemainingQuantity < quantityToDeduct) {
+    if (item.totalRemainingQuantity < convertedQuantity) {
       return res.status(400).json({ 
-        message: `Insufficient stock. Available: ${item.totalRemainingQuantity} ${item.unit}, Requested: ${quantityToDeduct} ${item.unit}` 
+        message: `Insufficient stock. Available: ${item.totalRemainingQuantity} ${item.unit}, Requested: ${quantityToDeduct} ${deductionUnit} (${convertedQuantity} ${item.unit})` 
       });
     }
 
-    // Use the model's FIFO deduction method
-    const success = item.deductStock(quantityToDeduct);
+    // Use the model's FIFO deduction method with converted quantity
+    const success = item.deductStock(convertedQuantity);
     
     if (!success) {
       return res.status(400).json({ 
@@ -259,6 +289,7 @@ exports.deductStock = async (req, res) => {
 
     res.status(200).json({ 
       message: "Stock deducted successfully using FIFO method", 
+      deducted: `${quantityToDeduct} ${deductionUnit} (${convertedQuantity} ${item.unit})`,
       item 
     });
   } catch (err) {
@@ -269,7 +300,6 @@ exports.deductStock = async (req, res) => {
     });
   }
 };
-
 // ==================== GET SUPPLIER STOCK DETAILS ====================
 exports.getSupplierStockDetails = async (req, res) => {
   try {
@@ -335,10 +365,11 @@ exports.getSupplierStockDetails = async (req, res) => {
 };
 
 // ==================== BATCH DEDUCT STOCK (FOR ORDERS WITH MULTIPLE ITEMS) ====================
+// ==================== BATCH DEDUCT STOCK WITH UNIT CONVERSION ====================
 exports.batchDeductStock = async (req, res) => {
   try {
     const { items } = req.body;
-    // items format: [{ itemId, quantityToDeduct, itemName }, ...]
+    // items format: [{ itemId, quantityToDeduct, unit, itemName }, ...]
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ 
@@ -351,9 +382,9 @@ exports.batchDeductStock = async (req, res) => {
 
     for (const saleItem of items) {
       try {
-        const { itemId, quantityToDeduct } = saleItem;
+        const { itemId, quantityToDeduct, unit } = saleItem;
 
-        // Find and deduct stock
+        // Find inventory item
         const item = await Inventory.findById(itemId);
         if (!item) {
           errors.push({
@@ -364,17 +395,47 @@ exports.batchDeductStock = async (req, res) => {
           continue;
         }
 
-        if (item.totalRemainingQuantity < quantityToDeduct) {
+        // ✅ CONVERT UNIT BEFORE DEDUCTION
+        const inventoryBaseUnit = item.unit.toLowerCase();
+        const deductionUnit = (unit || inventoryBaseUnit).toLowerCase();
+        
+        let convertedQuantity = quantityToDeduct;
+        
+        // Weight conversion
+        if (['kg', 'gm', 'mg'].includes(inventoryBaseUnit) && ['kg', 'gm', 'mg'].includes(deductionUnit)) {
+          const toBaseUnit = {
+            'kg': { 'kg': 1, 'gm': 0.001, 'mg': 0.000001 },
+            'gm': { 'kg': 1000, 'gm': 1, 'mg': 0.001 },
+            'mg': { 'kg': 1000000, 'gm': 1000, 'mg': 1 }
+          };
+          convertedQuantity = quantityToDeduct * toBaseUnit[inventoryBaseUnit][deductionUnit];
+        }
+        
+        // Volume conversion
+        if (['ltr', 'litre', 'ml'].includes(inventoryBaseUnit) && ['ltr', 'litre', 'ml'].includes(deductionUnit)) {
+          const toBaseUnit = {
+            'ltr': { 'ltr': 1, 'litre': 1, 'ml': 0.001 },
+            'litre': { 'ltr': 1, 'litre': 1, 'ml': 0.001 },
+            'ml': { 'ltr': 1000, 'litre': 1000, 'ml': 1 }
+          };
+          const normalizedBase = inventoryBaseUnit === 'litre' ? 'ltr' : inventoryBaseUnit;
+          const normalizedDeduct = deductionUnit === 'litre' ? 'ltr' : deductionUnit;
+          convertedQuantity = quantityToDeduct * toBaseUnit[normalizedBase][normalizedDeduct];
+        }
+
+        console.log(`Converting ${quantityToDeduct} ${deductionUnit} to ${convertedQuantity} ${inventoryBaseUnit}`);
+
+        if (item.totalRemainingQuantity < convertedQuantity) {
           errors.push({
             itemId,
             itemName: item.itemName,
-            error: `Insufficient stock. Available: ${item.totalRemainingQuantity}, Requested: ${quantityToDeduct}`
+            error: `Insufficient stock. Available: ${item.totalRemainingQuantity} ${inventoryBaseUnit}, Requested: ${quantityToDeduct} ${deductionUnit} (${convertedQuantity} ${inventoryBaseUnit})`
           });
           continue;
         }
 
-        // Deduct using FIFO
-        const success = item.deductStock(quantityToDeduct);
+        // Deduct using FIFO with converted quantity
+        const success = item.deductStock(convertedQuantity);
         if (!success) {
           errors.push({
             itemId,
@@ -389,7 +450,8 @@ exports.batchDeductStock = async (req, res) => {
         results.push({
           itemId,
           itemName: item.itemName,
-          deductedQuantity: quantityToDeduct,
+          deductedQuantity: `${quantityToDeduct} ${deductionUnit}`,
+          convertedQuantity: `${convertedQuantity} ${inventoryBaseUnit}`,
           remainingQuantity: item.totalRemainingQuantity
         });
       } catch (error) {
@@ -425,6 +487,434 @@ exports.batchDeductStock = async (req, res) => {
     });
   }
 };
+
+
+// const Inventory = require("../model/Inventory");
+// const Supplier = require("../model/Supplier");
+
+// // ==================== ADD/PURCHASE INVENTORY ====================
+// exports.addInventory = async (req, res) => {
+//   try {
+//     const { itemName, unit, restaurantId, supplierId, quantity, pricePerUnit } = req.body;
+
+//     // Validate required fields
+//     const missingFields = [];
+//     if (!itemName) missingFields.push("itemName");
+//     if (!unit) missingFields.push("unit");
+//     if (!restaurantId) missingFields.push("restaurantId");
+//     if (!supplierId) missingFields.push("supplierId");
+//     if (!quantity) missingFields.push("quantity");
+//     if (!pricePerUnit) missingFields.push("pricePerUnit");
+
+//     if (missingFields.length > 0) {
+//       console.error("Missing fields:", missingFields.join(", "));
+//       return res.status(400).json({ 
+//         message: "All fields are required", 
+//         missingFields 
+//       });
+//     }
+
+//     // Find supplier by supplierId
+//     const supplier = await Supplier.findById(supplierId);
+//     if (!supplier) {
+//       return res.status(404).json({ message: "Supplier not found" });
+//     }
+
+//     // Check if inventory item already exists
+//     let inventory = await Inventory.findOne({
+//       itemName: itemName.trim().toLowerCase(),
+//       restaurantId,
+//       isDeleted: { $ne: true }
+//     });
+
+//     if (inventory) {
+//       // Item exists - add stock from this supplier using the model method
+//       inventory.addSupplierStock({
+//         supplierId: supplier._id,
+//         supplierName: supplier.supplierName,
+//         quantity: Number(quantity),
+//         pricePerUnit: Number(pricePerUnit)
+//       });
+      
+//       await inventory.save();
+      
+//       return res.status(200).json({
+//         success: true,
+//         message: "Stock purchased and added from supplier successfully",
+//         inventory
+//       });
+//     } else {
+//       // Create new inventory item
+//       const parsedQuantity = Number(quantity);
+//       const parsedPrice = Number(pricePerUnit);
+//       const totalAmount = parsedQuantity * parsedPrice;
+
+//       inventory = new Inventory({
+//         itemName: itemName.trim().toLowerCase(),
+//         unit,
+//         restaurantId,
+//         totalQuantity: parsedQuantity,
+//         totalRemainingQuantity: parsedQuantity,
+//         totalUsedQuantity: 0,
+//         totalAmount: totalAmount,
+//         supplierStocks: [{
+//           supplierId: supplier._id,
+//           supplierName: supplier.supplierName,
+//           purchasedQuantity: parsedQuantity,
+//           remainingQuantity: parsedQuantity,
+//           usedQuantity: 0,
+//           pricePerUnit: parsedPrice,
+//           totalAmount: totalAmount,
+//           purchasedAt: new Date(),
+//           isFullyUsed: false
+//         }]
+//       });
+      
+//       await inventory.save();
+      
+//       return res.status(201).json({
+//         success: true,
+//         message: "New inventory item created and stock purchased successfully",
+//         inventory
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error adding inventory:", error);
+//     res.status(500).json({ 
+//       message: "Error adding inventory", 
+//       error: error.message 
+//     });
+//   }
+// };
+
+// // ==================== GET ALL INVENTORIES ====================
+// exports.getInventory = async (req, res) => {
+//   try {
+//     console.log('=== GET INVENTORY API CALLED ===');
+    
+//     const restaurantId = req.query.restaurantId || req.userId;
+
+//     if (!restaurantId) {
+//       return res.status(400).json({ message: "Restaurant ID is required" });
+//     }
+
+//     // Fetch inventories and populate supplier details
+//     const items = await Inventory.find({
+//       restaurantId,
+//       isDeleted: { $ne: true }
+//     })
+//     .populate({
+//       path: "supplierStocks.supplierId",
+//       select: "supplierName email phoneNumber rawItems"
+//     })
+//     .sort({ createdAt: -1 }); // Sort by newest first
+
+//     console.log(`Found ${items.length} inventory items for restaurant ${restaurantId}`);
+
+//     res.status(200).json(items);
+//   } catch (err) {
+//     console.error("Error fetching inventory:", err);
+//     res.status(500).json({ 
+//       message: "Error fetching inventory", 
+//       error: err.message 
+//     });
+//   }
+// };
+
+// // ==================== GET SINGLE INVENTORY BY ID ====================
+// exports.getInventoryById = async (req, res) => {
+//   try {
+//     const item = await Inventory.findById(req.params.id).populate({
+//       path: "supplierStocks.supplierId",
+//       select: "supplierName email phoneNumber rawItems"
+//     });
+    
+//     if (!item) {
+//       return res.status(404).json({ message: "Item not found" });
+//     }
+    
+//     res.status(200).json(item);
+//   } catch (err) {
+//     console.error("Error fetching item:", err);
+//     res.status(500).json({ 
+//       message: "Error fetching item", 
+//       error: err.message 
+//     });
+//   }
+// };
+
+// // ==================== UPDATE INVENTORY ====================
+// exports.updateInventory = async (req, res) => {
+//   try {
+//     const { unit } = req.body;
+    
+//     const item = await Inventory.findById(req.params.id);
+//     if (!item) {
+//       return res.status(404).json({ message: "Item not found" });
+//     }
+
+//     // Only allow updating unit
+//     if (unit) {
+//       item.unit = unit;
+//     }
+    
+//     await item.save();
+
+//     res.status(200).json({ 
+//       message: "Item updated successfully", 
+//       inventory: item 
+//     });
+//   } catch (err) {
+//     console.error("Error updating item:", err);
+//     res.status(500).json({ 
+//       message: "Error updating item", 
+//       error: err.message 
+//     });
+//   }
+// };
+
+// // ==================== DELETE INVENTORY (SOFT DELETE) ====================
+// exports.deleteInventory = async (req, res) => {
+//   try {
+//     const item = await Inventory.findById(req.params.id);
+//     if (!item) {
+//       return res.status(404).json({ message: "Item not found" });
+//     }
+
+//     item.isDeleted = true;
+//     item.deletedTime = new Date();
+//     await item.save();
+
+//     res.status(200).json({ 
+//       message: "Item deleted successfully", 
+//       item 
+//     });
+//   } catch (err) {
+//     console.error("Error deleting item:", err);
+//     res.status(500).json({ 
+//       message: "Error deleting item", 
+//       error: err.message 
+//     });
+//   }
+// };
+
+// // ==================== DEDUCT STOCK (FIFO METHOD) ====================
+// exports.deductStock = async (req, res) => {
+//   try {
+//     const { itemId, quantityToDeduct } = req.body;
+
+//     console.log('=== DEDUCT STOCK (FIFO) ===');
+//     console.log('Item ID:', itemId);
+//     console.log('Quantity to deduct:', quantityToDeduct);
+
+//     // Validate inputs
+//     if (!itemId || !quantityToDeduct) {
+//       return res.status(400).json({ 
+//         message: "Item ID and quantity are required" 
+//       });
+//     }
+
+//     if (quantityToDeduct <= 0) {
+//       return res.status(400).json({ 
+//         message: "Quantity must be greater than 0" 
+//       });
+//     }
+
+//     // Find the inventory item
+//     const item = await Inventory.findById(itemId);
+//     if (!item) {
+//       return res.status(404).json({ message: "Item not found" });
+//     }
+
+//     // Check if sufficient stock is available
+//     if (item.totalRemainingQuantity < quantityToDeduct) {
+//       return res.status(400).json({ 
+//         message: `Insufficient stock. Available: ${item.totalRemainingQuantity} ${item.unit}, Requested: ${quantityToDeduct} ${item.unit}` 
+//       });
+//     }
+
+//     // Use the model's FIFO deduction method
+//     const success = item.deductStock(quantityToDeduct);
+    
+//     if (!success) {
+//       return res.status(400).json({ 
+//         message: "Failed to deduct stock using FIFO method" 
+//       });
+//     }
+
+//     await item.save();
+
+//     console.log('Stock deducted successfully using FIFO');
+//     console.log('Remaining stock:', item.totalRemainingQuantity);
+
+//     res.status(200).json({ 
+//       message: "Stock deducted successfully using FIFO method", 
+//       item 
+//     });
+//   } catch (err) {
+//     console.error("Error deducting stock:", err);
+//     res.status(500).json({ 
+//       message: "Error deducting stock", 
+//       error: err.message 
+//     });
+//   }
+// };
+
+// // ==================== GET SUPPLIER STOCK DETAILS ====================
+// exports.getSupplierStockDetails = async (req, res) => {
+//   try {
+//     console.log('=== GET SUPPLIER STOCK DETAILS ===');
+//     console.log('Item ID:', req.params.id);
+
+//     const item = await Inventory.findById(req.params.id).populate({
+//       path: "supplierStocks.supplierId",
+//       select: "supplierName email phoneNumber"
+//     });
+
+//     if (!item) {
+//       return res.status(404).json({ message: "Item not found" });
+//     }
+
+//     // Calculate usage percentage and format supplier details
+//     const supplierDetails = item.supplierStocks.map((stock, index) => {
+//       const usagePercentage = stock.purchasedQuantity > 0 
+//         ? ((stock.usedQuantity / stock.purchasedQuantity) * 100).toFixed(2)
+//         : 0;
+
+//       return {
+//         index: index + 1,
+//         supplierId: stock.supplierId?._id || stock.supplierId,
+//         supplierName: stock.supplierName,
+//         supplierEmail: stock.supplierId?.email,
+//         supplierPhone: stock.supplierId?.phoneNumber,
+//         purchasedQuantity: stock.purchasedQuantity,
+//         remainingQuantity: stock.remainingQuantity,
+//         usedQuantity: stock.usedQuantity,
+//         pricePerUnit: stock.pricePerUnit,
+//         totalAmount: stock.totalAmount,
+//         purchasedAt: stock.purchasedAt,
+//         isFullyUsed: stock.isFullyUsed,
+//         usagePercentage: parseFloat(usagePercentage)
+//       };
+//     });
+
+//     // Prepare response with summary and details
+//     const response = {
+//       itemName: item.itemName,
+//       unit: item.unit,
+//       totalQuantity: item.totalQuantity,
+//       totalRemainingQuantity: item.totalRemainingQuantity,
+//       totalUsedQuantity: item.totalUsedQuantity,
+//       totalAmount: item.totalAmount,
+//       supplierStocks: supplierDetails,
+//       nextSupplierToUse: supplierDetails.find(s => !s.isFullyUsed)?.index || null
+//     };
+
+//     console.log('Supplier details fetched successfully');
+//     console.log('Total suppliers:', supplierDetails.length);
+//     console.log('Next supplier to use (FIFO):', response.nextSupplierToUse);
+
+//     res.status(200).json(response);
+//   } catch (err) {
+//     console.error("Error fetching supplier stock details:", err);
+//     res.status(500).json({ 
+//       message: "Error fetching supplier details", 
+//       error: err.message 
+//     });
+//   }
+// };
+
+// // ==================== BATCH DEDUCT STOCK (FOR ORDERS WITH MULTIPLE ITEMS) ====================
+// exports.batchDeductStock = async (req, res) => {
+//   try {
+//     const { items } = req.body;
+//     // items format: [{ itemId, quantityToDeduct, itemName }, ...]
+
+//     if (!items || !Array.isArray(items) || items.length === 0) {
+//       return res.status(400).json({ 
+//         message: "Items array is required" 
+//       });
+//     }
+
+//     const results = [];
+//     const errors = [];
+
+//     for (const saleItem of items) {
+//       try {
+//         const { itemId, quantityToDeduct } = saleItem;
+
+//         // Find and deduct stock
+//         const item = await Inventory.findById(itemId);
+//         if (!item) {
+//           errors.push({
+//             itemId,
+//             itemName: saleItem.itemName,
+//             error: "Item not found"
+//           });
+//           continue;
+//         }
+
+//         if (item.totalRemainingQuantity < quantityToDeduct) {
+//           errors.push({
+//             itemId,
+//             itemName: item.itemName,
+//             error: `Insufficient stock. Available: ${item.totalRemainingQuantity}, Requested: ${quantityToDeduct}`
+//           });
+//           continue;
+//         }
+
+//         // Deduct using FIFO
+//         const success = item.deductStock(quantityToDeduct);
+//         if (!success) {
+//           errors.push({
+//             itemId,
+//             itemName: item.itemName,
+//             error: "Failed to deduct stock"
+//           });
+//           continue;
+//         }
+
+//         await item.save();
+
+//         results.push({
+//           itemId,
+//           itemName: item.itemName,
+//           deductedQuantity: quantityToDeduct,
+//           remainingQuantity: item.totalRemainingQuantity
+//         });
+//       } catch (error) {
+//         errors.push({
+//           itemId: saleItem.itemId,
+//           itemName: saleItem.itemName,
+//           error: error.message
+//         });
+//       }
+//     }
+
+//     if (errors.length > 0 && results.length === 0) {
+//       return res.status(400).json({
+//         message: "Failed to process any items",
+//         errors
+//       });
+//     }
+
+//     res.status(200).json({
+//       message: errors.length > 0 
+//         ? "Some items processed with errors" 
+//         : "All items processed successfully using FIFO method",
+//       successCount: results.length,
+//       errorCount: errors.length,
+//       results,
+//       errors: errors.length > 0 ? errors : undefined
+//     });
+//   } catch (err) {
+//     console.error("Error in batch deduct stock:", err);
+//     res.status(500).json({ 
+//       message: "Error processing batch deduction", 
+//       error: err.message 
+//     });
+//   }
+// };
 
 // const Inventory = require("../model/Inventory");
 // const Supplier = require("../model/Supplier");
