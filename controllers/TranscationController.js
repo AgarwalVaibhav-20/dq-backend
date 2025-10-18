@@ -185,6 +185,7 @@ exports.createTransaction = async (req, res) => {
         itemName: item.itemName,
         price: Number(item.price),
         quantity: Number(item.quantity),
+        size: item.size || null, // ✅ ADD SIZE FIELD
         selectedSubcategoryId: item.selectedSubcategoryId || null,
         subtotal: Number(item.price) * Number(item.quantity)
       };

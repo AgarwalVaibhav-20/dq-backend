@@ -39,11 +39,13 @@ const menuSchema = new mongoose.Schema(
     stockItems: [
       {
         stockId: { type: String },
-        quantity: { type: Number, default: 0, min: 0 },
+        quantity: { type: Number, default: 0, min: 0 }, // inventory stock quantity used
         unit: {
           type: String,
           enum: ["kg", "litre", "gm", "pcs", "mg", "ml"],
         },
+        size: { type: String, trim: true }, // size name (half, full, etc.)
+        price: { type: Number, min: 0, default: 0 }, // price for this specific size
       },
     ],
 

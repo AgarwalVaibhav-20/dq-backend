@@ -50,7 +50,9 @@ const processStockItems = (stockItemsData) => {
       .map((item) => ({
         stockId: item.stockId?.trim() || "",
         quantity: Number(item.quantity) || 0,
-        unit: item.unit?.trim() || "" // ✅ ADD THIS LINE
+        unit: item.unit?.trim() || "",
+        size: item.size?.trim() || "", // ✅ ADD SIZE FIELD
+        price: Number(item.price) || 0 // ✅ ADD PRICE FIELD
       }))
       .filter((item) => item.stockId && item.quantity >= 0);
   } catch (error) {
@@ -116,6 +118,11 @@ exports.createMenuItem = async (req, res) => {
 
     const processedSizes = processSizes(req.body.sizes);
     const processedStockItems = processStockItems(req.body.stockItems);
+    
+    // 🔍 DEBUG: Log processed data
+    console.log("🔍 DEBUG - Backend processing:");
+    console.log("req.body.stockItems:", req.body.stockItems);
+    console.log("processedStockItems:", processedStockItems);
 
     let itemImage = null;
     if (req.file) {

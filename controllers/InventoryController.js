@@ -388,17 +388,25 @@ exports.deductStock = async (req, res) => {
 
     console.log('Stock deducted successfully using FIFO');
     console.log('Remaining stock:', item.totalRemainingQuantity);
+    console.log('🔍 DEBUG - Final deductionUnit:', deductionUnit);
 
     res.status(200).json({ 
       message: "Stock deducted successfully using FIFO method", 
-      deducted: `${quantityToDeduct} ${deductionUnit} (${convertedQuantity} ${item.unit})`,
+      deducted: `${quantityToDeduct} ${deductionUnit || 'units'} (${convertedQuantity} ${item.unit})`,
       item 
     });
   } catch (err) {
-    console.error("Error deducting stock:", err);
+    console.error("❌ Error deducting stock:", err);
+    console.error("❌ Error stack:", err.stack);
+    console.error("❌ Error details:", {
+      name: err.name,
+      message: err.message,
+      code: err.code
+    });
     res.status(500).json({ 
       message: "Error deducting stock", 
-      error: err.message 
+      error: err.message,
+      details: err.stack
     });
   }
 };

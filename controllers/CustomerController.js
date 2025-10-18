@@ -180,7 +180,7 @@ exports.getAllCustomers = async (req, res) => {
     // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
     const restaurantId = req.userId;
     const filter = restaurantId ? { restaurantId } : {};
-    const customers = await Customer.find(filter)
+    const customers = await Customer.find(filter).populate("membershipId");
 
     res.status(200).json({
       success: true,
@@ -200,8 +200,11 @@ exports.getAllCustomersForReservation = async (req, res) => {
     console.log("🔍 Fetching ALL customers for reservation dropdown...");
     // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
     const restaurantId = req.userId;
-    const customers = await Customer.find({ restaurantId }).populate('membershipId');;
+    console.log("👉 req.user.restaurantId =", req.userId);
+    console.log("Type:", typeof req.userId);
+    const customers = await Customer.find({ restaurantId: restaurantId }).populate("membershipId");
     console.log("📊 Total customers found:", customers.length);
+    console.log("📊 Customers:", customers);
     res.json(customers);
   } catch (err) {
     console.error("Error fetching all customers:", err);

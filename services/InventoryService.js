@@ -13,35 +13,55 @@ const Decimal = require('decimal.js');
  * @returns {Number} - Converted quantity
  */
 const convertUnits = (quantity, fromUnit, toUnit) => {
-  // Define conversion factors to grams as base unit
-  const conversionFactors = {
-    'mg': 0.001,    // 1 mg = 0.001 g
-    'gm': 1,        // 1 gm = 1 g
-    'kg': 1000,     // 1 kg = 1000 g
-    'ml': 1,        // 1 ml = 1 ml (for liquids)
-    'litre': 1000,  // 1 litre = 1000 ml
-    'liter': 1000,  // 1 liter = 1000 ml
-    'ltr': 1000,    // 1 ltr = 1000 ml
-    'pcs': 1        // 1 piece = 1 piece
-  };
-
   // If units are the same, no conversion needed
   if (fromUnit === toUnit) {
     return roundToDecimals(quantity, 2);
   }
 
-  // Convert to base unit first
-  const baseQuantity = quantity * (conversionFactors[fromUnit] || 1);
+  // Direct conversion logic for common cases
+  let convertedQuantity = quantity;
+
+  // Weight conversions
+  if (fromUnit === 'gm' && toUnit === 'kg') {
+    convertedQuantity = quantity / 1000; // 1000 gm = 1 kg
+  } else if (fromUnit === 'kg' && toUnit === 'gm') {
+    convertedQuantity = quantity * 1000; // 1 kg = 1000 gm
+  } else if (fromUnit === 'mg' && toUnit === 'gm') {
+    convertedQuantity = quantity / 1000; // 1000 mg = 1 gm
+  } else if (fromUnit === 'mg' && toUnit === 'kg') {
+    convertedQuantity = quantity / 1000000; // 1000000 mg = 1 kg
+  } else if (fromUnit === 'gm' && toUnit === 'mg') {
+    convertedQuantity = quantity * 1000; // 1 gm = 1000 mg
+  } else if (fromUnit === 'kg' && toUnit === 'mg') {
+    convertedQuantity = quantity * 1000000; // 1 kg = 1000000 mg
+  }
   
-  // Convert from base unit to target unit
-  const convertedQuantity = baseQuantity / (conversionFactors[toUnit] || 1);
+  // Volume conversions
+  else if (fromUnit === 'ml' && toUnit === 'ltr') {
+    convertedQuantity = quantity / 1000; // 1000 ml = 1 ltr
+  } else if (fromUnit === 'ml' && toUnit === 'litre') {
+    convertedQuantity = quantity / 1000; // 1000 ml = 1 litre
+  } else if (fromUnit === 'ltr' && toUnit === 'ml') {
+    convertedQuantity = quantity * 1000; // 1 ltr = 1000 ml
+  } else if (fromUnit === 'litre' && toUnit === 'ml') {
+    convertedQuantity = quantity * 1000; // 1 litre = 1000 ml
+  } else if (fromUnit === 'ltr' && toUnit === 'litre') {
+    convertedQuantity = quantity; // 1 ltr = 1 litre
+  } else if (fromUnit === 'litre' && toUnit === 'ltr') {
+    convertedQuantity = quantity; // 1 litre = 1 ltr
+  }
+  
+  // Default case - no conversion
+  else {
+    console.log(`⚠️ No conversion defined for ${fromUnit} to ${toUnit}`);
+    convertedQuantity = quantity;
+  }
   
   // Round to avoid floating point precision issues
   const roundedQuantity = roundToDecimals(convertedQuantity, 2);
   
   // Debug logging
   console.log(`Unit conversion: ${quantity} ${fromUnit} = ${roundedQuantity} ${toUnit}`);
-  console.log(`Base quantity: ${baseQuantity}, Conversion factor: ${conversionFactors[toUnit]}`);
   
   return roundedQuantity;
 };
@@ -54,7 +74,7 @@ const convertUnits = (quantity, fromUnit, toUnit) => {
  */
 const areUnitsCompatible = (unit1, unit2) => {
   const weightUnits = ['mg', 'gm', 'kg'];
-  const volumeUnits = ['ml', 'litre'];
+  const volumeUnits = ['ml', 'litre', 'ltr', 'liter']; // ✅ ADD ltr and liter
   const countUnits = ['pcs'];
   
   const unit1Type = weightUnits.includes(unit1) ? 'weight' : 
@@ -80,6 +100,7 @@ const areUnitsCompatible = (unit1, unit2) => {
 const deductInventory = async (items, restaurantId, sourceId, sourceType = 'transaction') => {
   try {
     console.log(`Starting inventory deduction for ${sourceType}:`, sourceId);
+    console.log(`🔍 DEBUG - Items received:`, JSON.stringify(items, null, 2));
     
     const results = {
       success: true,
@@ -102,10 +123,42 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
           continue;
         }
 
-        console.log(`Processing item: ${item.itemName} (Quantity: ${item.quantity})`);
+        console.log(`Processing item: ${item.itemName} (Quantity: ${item.quantity}, Size: ${item.size})`);
+        console.log(`🔍 DEBUG - Item details:`, {
+          itemId: item.itemId,
+          itemName: item.itemName,
+          quantity: item.quantity,
+          size: item.size,
+          hasSize: !!item.size,
+          sizeType: typeof item.size
+        });
+        console.log(`🔍 DEBUG - All menuItem.stockItems:`, menuItem.stockItems);
 
-        // 🔹 2. Loop through each stock item (ingredient)
-        for (const stockItem of menuItem.stockItems) {
+        // 🔹 2. Filter stock items by size (if size is provided)
+        let stockItemsToProcess = menuItem.stockItems;
+        if (item.size && item.size.trim()) {
+          console.log(`🔍 DEBUG - Looking for size: "${item.size}"`);
+          console.log(`🔍 DEBUG - Available sizes in stockItems:`, menuItem.stockItems.map(si => si.size));
+          
+          stockItemsToProcess = menuItem.stockItems.filter(stockItem => {
+            const matches = stockItem.size === item.size;
+            console.log(`🔍 DEBUG - Comparing "${stockItem.size}" === "${item.size}" = ${matches}`);
+            return matches;
+          });
+          
+          console.log(`Filtering stock items for size: ${item.size}, Found: ${stockItemsToProcess.length} items`);
+          console.log(`🔍 DEBUG - Filtered stockItems:`, stockItemsToProcess);
+          
+          if (stockItemsToProcess.length === 0) {
+            results.warnings.push(`No stock items found for size: ${item.size} in menu item: ${item.itemName}`);
+            continue;
+          }
+        } else {
+          console.log(`No size specified, processing all stock items for: ${item.itemName}`);
+        }
+
+        // 🔹 3. Loop through each stock item (ingredient) for the selected size
+        for (const stockItem of stockItemsToProcess) {
           const totalQuantityNeeded = new Decimal(stockItem.quantity).times(item.quantity);
 
           console.log(
@@ -113,6 +166,8 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
           );
 
           // 🔹 3. Find inventory item
+          console.log(`🔍 DEBUG - Looking for inventory item with stockId: ${stockItem.stockId}, restaurantId: ${restaurantId}`);
+          
           const inventoryItem = await Inventory.findOne({
             _id: stockItem.stockId,
             restaurantId: restaurantId,
@@ -120,9 +175,32 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
           });
 
           if (!inventoryItem) {
-            results.warnings.push(`Inventory item not found for stockId: ${stockItem.stockId}`);
+            // Try without restaurantId filter to see if item exists
+            const inventoryItemWithoutRestaurant = await Inventory.findById(stockItem.stockId);
+            if (inventoryItemWithoutRestaurant) {
+              console.log(`❌ Inventory item exists but restaurantId mismatch:`);
+              console.log(`   Expected: ${restaurantId}`);
+              console.log(`   Actual: ${inventoryItemWithoutRestaurant.restaurantId}`);
+              results.warnings.push(`Inventory item found but restaurantId mismatch for stockId: ${stockItem.stockId}`);
+            } else {
+              console.log(`❌ Inventory item not found at all for stockId: ${stockItem.stockId}`);
+              results.warnings.push(`Inventory item not found for stockId: ${stockItem.stockId}`);
+            }
             continue;
           }
+          
+          console.log(`✅ Found inventory item: ${inventoryItem.itemName} (ID: ${inventoryItem._id})`);
+          console.log(`🔍 DEBUG - Inventory item details:`, {
+            id: inventoryItem._id,
+            itemName: inventoryItem.itemName,
+            unit: inventoryItem.unit,
+            totalQuantity: inventoryItem.totalQuantity,
+            totalRemainingQuantity: inventoryItem.totalRemainingQuantity,
+            stock: inventoryItem.stock,
+            hasStock: !!inventoryItem.stock,
+            stockTotalQuantity: inventoryItem.stock?.totalQuantity,
+            stockQuantity: inventoryItem.stock?.quantity
+          });
 
           // 🔹 4. Check unit compatibility
           if (!areUnitsCompatible(stockItem.unit, inventoryItem.unit)) {
@@ -142,7 +220,9 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
            );
 
           // 🔹 6. Check if enough stock is available
-          const currentStock = new Decimal(inventoryItem.stock.totalQuantity || 0);
+          // Use totalRemainingQuantity instead of stock.totalQuantity
+          const currentStock = new Decimal(inventoryItem.totalRemainingQuantity || 0);
+          console.log(`🔍 DEBUG - Current stock: ${currentStock.toFixed(2)} ${inventoryItem.unit}`);
 
           if (currentStock.greaterThanOrEqualTo(convertedQuantityNeeded)) {
             // ✅ 7. Proper rounding (2 decimals everywhere)
@@ -154,8 +234,8 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
               stockItem.stockId,
               { 
                 $inc: { 
-                  'stock.totalQuantity': -roundedDeductedQuantity.toNumber(),
-                  'stock.quantity': -roundedDeductedQuantity.toNumber()
+                  'totalRemainingQuantity': -roundedDeductedQuantity.toNumber(),
+                  'totalUsedQuantity': roundedDeductedQuantity.toNumber()
                 }
               },
               { new: true }
