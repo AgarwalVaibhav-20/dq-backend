@@ -24,8 +24,17 @@ exports.createWasteMaterial = async (req, res) => {
             });
         }
 
-        // ✅ Get current total quantity
-        const currentQuantity = inventoryItem.stock?.quantity ?? 0;
+        // ✅ Get current total quantity (FIXED: Use correct field)
+        const currentQuantity = inventoryItem.totalRemainingQuantity ?? 0;
+        const inventoryUnit = inventoryItem.unit;
+        
+        console.log('🔄 Stock validation:', {
+            itemName: inventoryItem.itemName,
+            totalRemainingQuantity: inventoryItem.totalRemainingQuantity,
+            inventoryUnit: inventoryUnit,
+            wasteUnit: unit,
+            wasteQuantity: wasteQuantity
+        });
 
         if (currentQuantity <= 0) {
             return res.status(400).json({
@@ -34,11 +43,64 @@ exports.createWasteMaterial = async (req, res) => {
             });
         }
 
-        // ✅ Prevent waste > available quantity
-        if (wasteQuantity > currentQuantity) {
+        // ✅ Unit conversion function - Simplified and working
+        const convertUnits = (quantity, fromUnit, toUnit) => {
+            console.log(`🔄 Converting: ${quantity} ${fromUnit} to ${toUnit}`);
+            
+            // If same units, return as is
+            if (fromUnit === toUnit) {
+                console.log(`✅ Same units: ${quantity}`);
+                return quantity;
+            }
+
+            // Weight conversions (base: gm)
+            const weightConversions = {
+                'mg': 0.001,    // 1mg = 0.001gm
+                'gm': 1,        // 1gm = 1gm (base)
+                'kg': 1000     // 1kg = 1000gm
+            };
+
+            // Volume conversions (base: ml)
+            const volumeConversions = {
+                'ml': 1,        // 1ml = 1ml (base)
+                'ltr': 1000,    // 1ltr = 1000ml
+                'litre': 1000   // 1litre = 1000ml
+            };
+
+            // Check if both are weight units
+            if (weightConversions[fromUnit] && weightConversions[toUnit]) {
+                const baseQuantity = quantity * weightConversions[fromUnit];
+                const convertedQuantity = baseQuantity / weightConversions[toUnit];
+                console.log(`✅ Weight conversion: ${quantity} ${fromUnit} = ${convertedQuantity} ${toUnit}`);
+                return convertedQuantity;
+            }
+
+            // Check if both are volume units
+            if (volumeConversions[fromUnit] && volumeConversions[toUnit]) {
+                const baseQuantity = quantity * volumeConversions[fromUnit];
+                const convertedQuantity = baseQuantity / volumeConversions[toUnit];
+                console.log(`✅ Volume conversion: ${quantity} ${fromUnit} = ${convertedQuantity} ${toUnit}`);
+                return convertedQuantity;
+            }
+
+            // For pcs or incompatible units, return original
+            console.log(`⚠️ No conversion available: ${fromUnit} to ${toUnit} - using original quantity`);
+            return quantity;
+        };
+
+        // ✅ Convert waste quantity to inventory unit
+        const convertedWasteQuantity = convertUnits(wasteQuantity, unit, inventoryUnit);
+        
+        console.log('🔄 Converted waste quantity:', {
+            original: `${wasteQuantity} ${unit}`,
+            converted: `${convertedWasteQuantity} ${inventoryUnit}`
+        });
+
+        // ✅ Prevent waste > available quantity (using converted quantity)
+        if (convertedWasteQuantity > currentQuantity) {
             return res.status(400).json({
                 success: false,
-                message: `Cannot waste ${wasteQuantity} ${unit}. Only ${currentQuantity} ${unit} available.`,
+                message: `Cannot waste ${wasteQuantity} ${unit} (${convertedWasteQuantity} ${inventoryUnit}). Only ${currentQuantity} ${inventoryUnit} available.`,
             });
         }
 
@@ -55,27 +117,60 @@ exports.createWasteMaterial = async (req, res) => {
 
         await waste.save();
 
-        // ✅ Reduce available stock
-        inventoryItem.stock.quantity = currentQuantity - wasteQuantity;
+        // ✅ Reduce available stock using FIFO method
+        console.log('🔄 Before waste deduction:', {
+            totalRemainingQuantity: inventoryItem.totalRemainingQuantity,
+            totalQuantity: inventoryItem.totalQuantity
+        });
 
-        // Also update totalQuantity if it exists
-        if (inventoryItem.stock.totalQuantity) {
-            inventoryItem.stock.totalQuantity = inventoryItem.stock.totalQuantity - wasteQuantity;
+        // Deduct from supplierStocks using FIFO (First In, First Out)
+        let remainingWaste = convertedWasteQuantity; // ✅ Use converted quantity
+        
+        for (let stockItem of inventoryItem.supplierStocks) {
+            if (remainingWaste <= 0) break;
+            
+            if (stockItem.remainingQuantity > 0 && !stockItem.isFullyUsed) {
+                const deductFromThisStock = Math.min(stockItem.remainingQuantity, remainingWaste);
+                
+                stockItem.remainingQuantity -= deductFromThisStock;
+                stockItem.usedQuantity += deductFromThisStock;
+                
+                if (stockItem.remainingQuantity <= 0) {
+                    stockItem.isFullyUsed = true;
+                    stockItem.remainingQuantity = 0;
+                }
+                
+                remainingWaste -= deductFromThisStock;
+                
+                console.log(`✅ Deducted ${deductFromThisStock} ${inventoryUnit} from supplier stock`);
+            }
         }
+
+        // Update main totals (using converted quantity)
+        inventoryItem.totalRemainingQuantity -= convertedWasteQuantity;
+        inventoryItem.totalUsedQuantity = (inventoryItem.totalUsedQuantity || 0) + convertedWasteQuantity;
 
         await inventoryItem.save();
 
+        console.log('✅ After waste deduction:', {
+            totalRemainingQuantity: inventoryItem.totalRemainingQuantity,
+            totalQuantity: inventoryItem.totalQuantity,
+            wasteDeducted: convertedWasteQuantity
+        });
+
         res.status(201).json({
             success: true,
-            message: `Waste added. Remaining ${itemName}: ${inventoryItem.stock.quantity} ${unit}`,
+            message: `Waste added. Remaining ${itemName}: ${inventoryItem.totalRemainingQuantity} ${inventoryUnit}`,
             waste,
         });
     } catch (error) {
-        console.error("Error creating waste material:", error);
+        console.error("❌ Error creating waste material:", error);
+        console.error("❌ Error stack:", error.stack);
         res.status(500).json({
             success: false,
             message: "Internal server error",
             error: error.message,
+            details: error.stack
         });
     }
 };

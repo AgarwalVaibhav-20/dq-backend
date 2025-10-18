@@ -206,6 +206,13 @@ const areUnitsCompatible = (unit1, unit2) => {
  * @param {Object} supplierData - Supplier stock data
  */
 inventorySchema.methods.addSupplierStock = function(supplierData) {
+  console.log('🔄 addSupplierStock called with:', supplierData);
+  console.log('🔄 Before adding - Current totals:', {
+    totalQuantity: this.totalQuantity,
+    totalRemainingQuantity: this.totalRemainingQuantity,
+    totalAmount: this.totalAmount
+  });
+  
   const newStock = {
     supplierId: supplierData.supplierId,
     supplierName: supplierData.supplierName,
@@ -224,6 +231,13 @@ inventorySchema.methods.addSupplierStock = function(supplierData) {
   this.totalQuantity += supplierData.quantity;
   this.totalRemainingQuantity += supplierData.quantity;
   this.totalAmount += newStock.totalAmount;
+  
+  console.log('🔄 After adding - New totals:', {
+    totalQuantity: this.totalQuantity,
+    totalRemainingQuantity: this.totalRemainingQuantity,
+    totalAmount: this.totalAmount,
+    supplierStocksCount: this.supplierStocks.length
+  });
   
   // Sort by purchasedAt to maintain FIFO
   this.supplierStocks.sort((a, b) => a.purchasedAt - b.purchasedAt);

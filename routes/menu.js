@@ -9,7 +9,8 @@ const {
   updateMenuItem,
   // deleteMenuItem,
   hardDeleteMenuItem,
-  updateMenuStatus
+  updateMenuStatus,
+  deductStockFromMenu
 } = require("../controllers/NewMenuController");
 
 router.get("/menu/allmenues", authMiddleware, getMenuItems);
@@ -18,5 +19,8 @@ router.put('/menus/status', authMiddleware, updateMenuStatus);
 router.put("/menu/update/:id", authMiddleware, uploadMiddleware, updateMenuItem);
 
 router.delete("/menu/delete/:id", authMiddleware, hardDeleteMenuItem);
+
+// ==================== DEDUCT STOCK FROM MENU ====================
+router.post("/menu/deduct-stock", authMiddleware, deductStockFromMenu);
 
 module.exports = router;

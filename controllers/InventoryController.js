@@ -1,6 +1,10 @@
 const Inventory = require("../model/Inventory");
 const Supplier = require("../model/Supplier");
 
+// Utility function removed - no auto-fix needed
+
+// Bulk fix function removed - no auto-fix needed
+
 // ==================== ADD/PURCHASE INVENTORY ====================
 exports.addInventory = async (req, res) => {
   try {
@@ -37,6 +41,13 @@ exports.addInventory = async (req, res) => {
     });
 
     if (inventory) {
+      console.log('🔄 Item exists, adding stock from supplier...');
+      console.log('🔄 Current inventory:', {
+        itemName: inventory.itemName,
+        totalQuantity: inventory.totalQuantity,
+        totalRemainingQuantity: inventory.totalRemainingQuantity
+      });
+      
       // Item exists - add stock from this supplier using the model method
       inventory.addSupplierStock({
         supplierId: supplier._id,
@@ -45,7 +56,15 @@ exports.addInventory = async (req, res) => {
         pricePerUnit: Number(pricePerUnit)
       });
       
+      console.log('🔄 After addSupplierStock:', {
+        totalQuantity: inventory.totalQuantity,
+        totalRemainingQuantity: inventory.totalRemainingQuantity,
+        supplierStocksCount: inventory.supplierStocks.length
+      });
+      
       await inventory.save();
+      
+      console.log('✅ Inventory saved successfully');
       
       return res.status(200).json({
         success: true,
@@ -120,7 +139,21 @@ exports.getInventory = async (req, res) => {
 
     console.log(`Found ${items.length} inventory items for restaurant ${restaurantId}`);
 
-    res.status(200).json(items);
+    // Round all decimal values to 2 decimal places
+    const processedItems = items.map(item => ({
+      ...item.toObject(),
+      totalRemainingQuantity: parseFloat((item.totalRemainingQuantity || 0).toFixed(2)),
+      totalUsedQuantity: parseFloat((item.totalUsedQuantity || 0).toFixed(2)),
+      totalQuantity: parseFloat((item.totalQuantity || 0).toFixed(2)),
+      totalAmount: parseFloat((item.totalAmount || 0).toFixed(2)),
+      stock: {
+        ...item.stock,
+        totalQuantity: parseFloat((item.stock?.totalQuantity || 0).toFixed(2)),
+        quantity: parseFloat((item.stock?.quantity || 0).toFixed(2))
+      }
+    }));
+
+    res.status(200).json(processedItems);
   } catch (err) {
     console.error("Error fetching inventory:", err);
     res.status(500).json({ 
@@ -142,7 +175,21 @@ exports.getInventoryById = async (req, res) => {
       return res.status(404).json({ message: "Item not found" });
     }
     
-    res.status(200).json(item);
+    // Round all decimal values to 2 decimal places
+    const processedItem = {
+      ...item.toObject(),
+      totalRemainingQuantity: parseFloat((item.totalRemainingQuantity || 0).toFixed(2)),
+      totalUsedQuantity: parseFloat((item.totalUsedQuantity || 0).toFixed(2)),
+      totalQuantity: parseFloat((item.totalQuantity || 0).toFixed(2)),
+      totalAmount: parseFloat((item.totalAmount || 0).toFixed(2)),
+      stock: {
+        ...item.stock,
+        totalQuantity: parseFloat((item.stock?.totalQuantity || 0).toFixed(2)),
+        quantity: parseFloat((item.stock?.quantity || 0).toFixed(2))
+      }
+    };
+    
+    res.status(200).json(processedItem);
   } catch (err) {
     console.error("Error fetching item:", err);
     res.status(500).json({ 
@@ -216,6 +263,8 @@ exports.deductStock = async (req, res) => {
     console.log('Item ID:', itemId);
     console.log('Quantity to deduct:', quantityToDeduct);
     console.log('Unit:', unit);
+    console.log('🔍 DEBUG - Request body:', req.body);
+    console.log('🔍 DEBUG - Unit parameter:', unit, 'Type:', typeof unit);
 
     // Validate inputs
     if (!itemId || !quantityToDeduct) {
@@ -236,9 +285,62 @@ exports.deductStock = async (req, res) => {
       return res.status(404).json({ message: "Item not found" });
     }
 
+    // 🔍 DEBUG: Check item data
+    console.log('🔍 DEBUG - Item found:', {
+      id: item._id,
+      itemName: item.itemName,
+      unit: item.unit,
+      hasUnit: !!item.unit,
+      unitType: typeof item.unit
+    });
+
+    // Check if unit exists - NO AUTO FIX
+    if (!item.unit) {
+      return res.status(400).json({ 
+        message: `Inventory item "${item.itemName}" does not have a unit defined. Please update the item with a valid unit.` 
+      });
+    }
+
     // ✅ CONVERT UNIT BEFORE DEDUCTION
     const inventoryBaseUnit = item.unit.toLowerCase();
-    const deductionUnit = (unit || inventoryBaseUnit).toLowerCase();
+    
+    // If unit is not provided, try to get it from menu's stockItems
+    let deductionUnit = unit;
+    if (!deductionUnit) {
+      console.log('⚠️ Unit not provided in request, trying to fetch from menu...');
+      
+      try {
+        const Menu = require("../model/Menu");
+        
+        // Find menu item that uses this inventory item
+        const menuItem = await Menu.findOne({
+          'stockItems.stockId': itemId,
+          isDeleted: { $ne: true }
+        });
+        
+        if (menuItem && menuItem.stockItems) {
+          const stockItem = menuItem.stockItems.find(s => s.stockId.toString() === itemId.toString());
+          if (stockItem && stockItem.unit) {
+            deductionUnit = stockItem.unit;
+            console.log(`✅ Found unit from menu: ${deductionUnit}`);
+          } else {
+            console.log('⚠️ Unit not found in menu, using inventory unit as fallback');
+            deductionUnit = inventoryBaseUnit;
+          }
+        } else {
+          console.log('⚠️ Menu item not found, using inventory unit as fallback');
+          deductionUnit = inventoryBaseUnit;
+        }
+      } catch (error) {
+        console.error('Error fetching unit from menu:', error);
+        console.log('⚠️ Using inventory unit as fallback');
+        deductionUnit = inventoryBaseUnit;
+      }
+    }
+    
+    deductionUnit = deductionUnit.toLowerCase();
+    
+    console.log(`🔄 Unit Conversion: ${quantityToDeduct} ${deductionUnit} → ${inventoryBaseUnit}`);
     
     let convertedQuantity = quantityToDeduct;
     
@@ -327,11 +429,11 @@ exports.getSupplierStockDetails = async (req, res) => {
         supplierName: stock.supplierName,
         supplierEmail: stock.supplierId?.email,
         supplierPhone: stock.supplierId?.phoneNumber,
-        purchasedQuantity: stock.purchasedQuantity,
-        remainingQuantity: stock.remainingQuantity,
-        usedQuantity: stock.usedQuantity,
-        pricePerUnit: stock.pricePerUnit,
-        totalAmount: stock.totalAmount,
+        purchasedQuantity: parseFloat((stock.purchasedQuantity || 0).toFixed(2)),
+        remainingQuantity: parseFloat((stock.remainingQuantity || 0).toFixed(2)),
+        usedQuantity: parseFloat((stock.usedQuantity || 0).toFixed(2)), // ✅ FIX APPLIED HERE
+        pricePerUnit: parseFloat((stock.pricePerUnit || 0).toFixed(2)),
+        totalAmount: parseFloat((stock.totalAmount || 0).toFixed(2)),
         purchasedAt: stock.purchasedAt,
         isFullyUsed: stock.isFullyUsed,
         usagePercentage: parseFloat(usagePercentage)
@@ -342,10 +444,10 @@ exports.getSupplierStockDetails = async (req, res) => {
     const response = {
       itemName: item.itemName,
       unit: item.unit,
-      totalQuantity: item.totalQuantity,
-      totalRemainingQuantity: item.totalRemainingQuantity,
-      totalUsedQuantity: item.totalUsedQuantity,
-      totalAmount: item.totalAmount,
+      totalQuantity: parseFloat((item.totalQuantity || 0).toFixed(2)),
+      totalRemainingQuantity: parseFloat((item.totalRemainingQuantity || 0).toFixed(2)),
+      totalUsedQuantity: parseFloat((item.totalUsedQuantity || 0).toFixed(2)), // ✅ FIX APPLIED HERE
+      totalAmount: parseFloat((item.totalAmount || 0).toFixed(2)),
       supplierStocks: supplierDetails,
       nextSupplierToUse: supplierDetails.find(s => !s.isFullyUsed)?.index || null
     };

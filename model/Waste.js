@@ -24,7 +24,7 @@ const wasteMaterialSchema = new mongoose.Schema(
         },
         unit: {
             type: String,
-            enum: ["kg", "litre", "pcs", "g", "other"],
+            enum: ["kg", "ltr", "pcs", "gm","ml", "other"],
             default: "pcs",
         },
         note: {

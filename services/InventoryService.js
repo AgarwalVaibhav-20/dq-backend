@@ -1,6 +1,8 @@
 const Menu = require("../model/Menu");
 const Inventory = require("../model/Inventory");
 const { roundToDecimals } = require("../utils/numberUtils");
+const Decimal = require('decimal.js');
+
 
 
 /**
@@ -74,6 +76,7 @@ const areUnitsCompatible = (unit1, unit2) => {
  * @param {String} sourceType - 'transaction' or 'order'
  * @returns {Object} - Result object with success status and details
  */
+
 const deductInventory = async (items, restaurantId, sourceId, sourceType = 'transaction') => {
   try {
     console.log(`Starting inventory deduction for ${sourceType}:`, sourceId);
@@ -87,87 +90,94 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
     
     for (const item of items) {
       try {
-        // Find the menu item to get its stockItems (ingredients)
+        // 🔹 1. Find menu item to get its stockItems (ingredients)
         const menuItem = await Menu.findById(item.itemId);
         if (!menuItem) {
           results.warnings.push(`Menu item not found: ${item.itemName} (ID: ${item.itemId})`);
           continue;
         }
-        
+
         if (!menuItem.stockItems || menuItem.stockItems.length === 0) {
           console.log(`No stock items found for menu item: ${item.itemName}`);
           continue;
         }
-        
+
         console.log(`Processing item: ${item.itemName} (Quantity: ${item.quantity})`);
-        
+
+        // 🔹 2. Loop through each stock item (ingredient)
         for (const stockItem of menuItem.stockItems) {
-          // Calculate total quantity needed for this stock item
-          const totalQuantityNeeded = stockItem.quantity * item.quantity;
-          
-          console.log(`Deducting stock: ${stockItem.stockId} - Quantity needed: ${totalQuantityNeeded} ${stockItem.unit}`);
-          
-          // ✅ CORRECT FLOW: Transaction → Menu → Inventory
-          // 1. Transaction items[].itemId → Menu collection
-          // 2. Menu stockItems[].stockId → Inventory collection  
-          // 3. Inventory collection में actual stock deduction
-          
-          // Find and update the inventory item using stockId from Menu
+          const totalQuantityNeeded = new Decimal(stockItem.quantity).times(item.quantity);
+
+          console.log(
+            `Deducting stock: ${stockItem.stockId} - Quantity needed: ${totalQuantityNeeded} ${stockItem.unit}`
+          );
+
+          // 🔹 3. Find inventory item
           const inventoryItem = await Inventory.findOne({
             _id: stockItem.stockId,
             restaurantId: restaurantId,
             isDeleted: { $ne: true }
           });
-          
+
           if (!inventoryItem) {
             results.warnings.push(`Inventory item not found for stockId: ${stockItem.stockId}`);
             continue;
           }
-          
-          // Check unit compatibility
+
+          // 🔹 4. Check unit compatibility
           if (!areUnitsCompatible(stockItem.unit, inventoryItem.unit)) {
             const warning = `Unit mismatch: Menu uses ${stockItem.unit}, Inventory uses ${inventoryItem.unit} for ${inventoryItem.itemName}`;
             results.warnings.push(warning);
             console.warn(warning);
             continue;
           }
-          
-          // Convert quantity to inventory unit
-          const convertedQuantityNeeded = convertUnits(totalQuantityNeeded, stockItem.unit, inventoryItem.unit);
-          
-          console.log(`Converted quantity: ${totalQuantityNeeded} ${stockItem.unit} = ${convertedQuantityNeeded} ${inventoryItem.unit}`);
-          
-          // Check if sufficient stock is available
-          const currentStock = inventoryItem.stock.totalQuantity || 0;
-          if (currentStock >= convertedQuantityNeeded) {
-            // Round the deducted quantity to avoid floating point issues
-            const roundedDeductedQuantity = roundToDecimals(convertedQuantityNeeded, 2);
-            
-            // ✅ ACTUAL STOCK DEDUCTION in Inventory collection
+
+          // 🔹 5. Convert quantity (e.g., gm → kg)
+          const convertedQuantityNeeded = new Decimal(
+            convertUnits(totalQuantityNeeded.toNumber(), stockItem.unit, inventoryItem.unit)
+          );
+
+           console.log(
+             `Converted quantity: ${totalQuantityNeeded.toFixed(2)} ${stockItem.unit} = ${convertedQuantityNeeded.toFixed(2)} ${inventoryItem.unit}`
+           );
+
+          // 🔹 6. Check if enough stock is available
+          const currentStock = new Decimal(inventoryItem.stock.totalQuantity || 0);
+
+          if (currentStock.greaterThanOrEqualTo(convertedQuantityNeeded)) {
+            // ✅ 7. Proper rounding (2 decimals everywhere)
+            const roundedDeductedQuantity = convertedQuantityNeeded.toDecimalPlaces(2);
+            const remainingStock = currentStock.minus(roundedDeductedQuantity).toDecimalPlaces(2);
+
+            // ✅ 8. Deduct from DB
             await Inventory.findByIdAndUpdate(
               stockItem.stockId,
               { 
                 $inc: { 
-                  'stock.totalQuantity': -roundedDeductedQuantity,
-                  'stock.quantity': -roundedDeductedQuantity
+                  'stock.totalQuantity': -roundedDeductedQuantity.toNumber(),
+                  'stock.quantity': -roundedDeductedQuantity.toNumber()
                 }
               },
               { new: true }
             );
-            
-            results.deductedItems.push({
-              inventoryItemName: inventoryItem.itemName,
-              stockId: stockItem.stockId,
-              quantityDeducted: roundedDeductedQuantity,
-              unit: inventoryItem.unit,
-              remainingStock: roundToDecimals(currentStock - roundedDeductedQuantity, 2),
-              originalQuantity: totalQuantityNeeded,
-              originalUnit: stockItem.unit
-            });
-            
-            console.log(`Successfully deducted ${convertedQuantityNeeded} ${inventoryItem.unit} from inventory item: ${inventoryItem.itemName}`);
+
+             // ✅ 9. Push result summary
+             results.deductedItems.push({
+               inventoryItemName: inventoryItem.itemName,
+               stockId: stockItem.stockId,
+               quantityDeducted: roundedDeductedQuantity.toNumber(),
+               unit: inventoryItem.unit,
+               remainingStock: parseFloat(remainingStock.toFixed(2)),
+               originalQuantity: totalQuantityNeeded.toDecimalPlaces(2).toNumber(),
+               originalUnit: stockItem.unit
+             });
+
+            console.log(
+              `✅ Successfully deducted ${roundedDeductedQuantity.toFixed(2)} ${inventoryItem.unit} from ${inventoryItem.itemName}`
+            );
+
           } else {
-            const warning = `Insufficient stock for ${inventoryItem.itemName}. Available: ${currentStock} ${inventoryItem.unit}, Needed: ${convertedQuantityNeeded} ${inventoryItem.unit}`;
+            const warning = `⚠️ Insufficient stock for ${inventoryItem.itemName}. Available: ${currentStock.toFixed(2)} ${inventoryItem.unit}, Needed: ${convertedQuantityNeeded.toFixed(2)} ${inventoryItem.unit}`;
             results.warnings.push(warning);
             console.warn(warning);
           }
@@ -178,19 +188,21 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
         console.error(error);
       }
     }
-    
+
+    // ✅ Final result flag
     if (results.errors.length > 0) {
       results.success = false;
     }
-    
+
     console.log(`Inventory deduction completed for ${sourceType}:`, sourceId);
     console.log(`Results:`, {
       deductedItems: results.deductedItems.length,
       warnings: results.warnings.length,
       errors: results.errors.length
     });
-    
+
     return results;
+
   } catch (error) {
     console.error(`Error in inventory deduction for ${sourceType}:`, error);
     return {
@@ -201,6 +213,133 @@ const deductInventory = async (items, restaurantId, sourceId, sourceType = 'tran
     };
   }
 };
+// const deductInventory = async (items, restaurantId, sourceId, sourceType = 'transaction') => {
+//   try {
+//     console.log(`Starting inventory deduction for ${sourceType}:`, sourceId);
+    
+//     const results = {
+//       success: true,
+//       deductedItems: [],
+//       warnings: [],
+//       errors: []
+//     };
+    
+//     for (const item of items) {
+//       try {
+//         // Find the menu item to get its stockItems (ingredients)
+//         const menuItem = await Menu.findById(item.itemId);
+//         if (!menuItem) {
+//           results.warnings.push(`Menu item not found: ${item.itemName} (ID: ${item.itemId})`);
+//           continue;
+//         }
+        
+//         if (!menuItem.stockItems || menuItem.stockItems.length === 0) {
+//           console.log(`No stock items found for menu item: ${item.itemName}`);
+//           continue;
+//         }
+        
+//         console.log(`Processing item: ${item.itemName} (Quantity: ${item.quantity})`);
+        
+//         for (const stockItem of menuItem.stockItems) {
+//           // Calculate total quantity needed for this stock item
+//           const totalQuantityNeeded = stockItem.quantity * item.quantity;
+          
+//           console.log(`Deducting stock: ${stockItem.stockId} - Quantity needed: ${totalQuantityNeeded} ${stockItem.unit}`);
+          
+//           // ✅ CORRECT FLOW: Transaction → Menu → Inventory
+//           // 1. Transaction items[].itemId → Menu collection
+//           // 2. Menu stockItems[].stockId → Inventory collection  
+//           // 3. Inventory collection में actual stock deduction
+          
+//           // Find and update the inventory item using stockId from Menu
+//           const inventoryItem = await Inventory.findOne({
+//             _id: stockItem.stockId,
+//             restaurantId: restaurantId,
+//             isDeleted: { $ne: true }
+//           });
+          
+//           if (!inventoryItem) {
+//             results.warnings.push(`Inventory item not found for stockId: ${stockItem.stockId}`);
+//             continue;
+//           }
+          
+//           // Check unit compatibility
+//           if (!areUnitsCompatible(stockItem.unit, inventoryItem.unit)) {
+//             const warning = `Unit mismatch: Menu uses ${stockItem.unit}, Inventory uses ${inventoryItem.unit} for ${inventoryItem.itemName}`;
+//             results.warnings.push(warning);
+//             console.warn(warning);
+//             continue;
+//           }
+          
+//           // Convert quantity to inventory unit
+//           const convertedQuantityNeeded = convertUnits(totalQuantityNeeded, stockItem.unit, inventoryItem.unit);
+          
+//           console.log(`Converted quantity: ${totalQuantityNeeded} ${stockItem.unit} = ${convertedQuantityNeeded} ${inventoryItem.unit}`);
+          
+//           // Check if sufficient stock is available
+//           const currentStock = inventoryItem.stock.totalQuantity || 0;
+//           if (currentStock >= convertedQuantityNeeded) {
+//             // Round the deducted quantity to avoid floating point issues
+//             const roundedDeductedQuantity = roundToDecimals(convertedQuantityNeeded, 2);
+            
+//             // ✅ ACTUAL STOCK DEDUCTION in Inventory collection
+//             await Inventory.findByIdAndUpdate(
+//               stockItem.stockId,
+//               { 
+//                 $inc: { 
+//                   'stock.totalQuantity': -roundedDeductedQuantity,
+//                   'stock.quantity': -roundedDeductedQuantity
+//                 }
+//               },
+//               { new: true }
+//             );
+            
+//             results.deductedItems.push({
+//               inventoryItemName: inventoryItem.itemName,
+//               stockId: stockItem.stockId,
+//               quantityDeducted: roundedDeductedQuantity,
+//               unit: inventoryItem.unit,
+//               remainingStock: roundToDecimals(currentStock - roundedDeductedQuantity, 2),
+//               originalQuantity: totalQuantityNeeded,
+//               originalUnit: stockItem.unit
+//             });
+            
+//             console.log(`Successfully deducted ${convertedQuantityNeeded} ${inventoryItem.unit} from inventory item: ${inventoryItem.itemName}`);
+//           } else {
+//             const warning = `Insufficient stock for ${inventoryItem.itemName}. Available: ${currentStock} ${inventoryItem.unit}, Needed: ${convertedQuantityNeeded} ${inventoryItem.unit}`;
+//             results.warnings.push(warning);
+//             console.warn(warning);
+//           }
+//         }
+//       } catch (itemError) {
+//         const error = `Error processing item ${item.itemName}: ${itemError.message}`;
+//         results.errors.push(error);
+//         console.error(error);
+//       }
+//     }
+    
+//     if (results.errors.length > 0) {
+//       results.success = false;
+//     }
+    
+//     console.log(`Inventory deduction completed for ${sourceType}:`, sourceId);
+//     console.log(`Results:`, {
+//       deductedItems: results.deductedItems.length,
+//       warnings: results.warnings.length,
+//       errors: results.errors.length
+//     });
+    
+//     return results;
+//   } catch (error) {
+//     console.error(`Error in inventory deduction for ${sourceType}:`, error);
+//     return {
+//       success: false,
+//       deductedItems: [],
+//       warnings: [],
+//       errors: [error.message]
+//     };
+//   }
+// };
 
 /**
  * Check if sufficient inventory is available for items

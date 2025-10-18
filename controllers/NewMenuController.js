@@ -320,6 +320,48 @@ exports.getMenuItemById = async (req, res) => {
 };
 
 // ✅ FIXED: Update Menu Item with proper unit handling
+// ==================== DEDUCT STOCK FROM MENU ====================
+exports.deductStockFromMenu = async (req, res) => {
+  try {
+    const { itemId, quantityToDeduct, unit } = req.body;
+    
+    console.log('=== DEDUCT STOCK FROM MENU ===');
+    console.log('Item ID:', itemId);
+    console.log('Quantity to deduct:', quantityToDeduct);
+    console.log('Unit:', unit);
+    
+    // Call deductStock API with unit parameter
+    const deductResult = await fetch('http://localhost:4000/api/deduct-stock', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${req.headers.authorization || 'dummy-token'}`
+      },
+      body: JSON.stringify({
+        itemId: itemId,
+        quantityToDeduct: quantityToDeduct,
+        unit: unit  // ✅ Pass unit parameter
+      })
+    });
+    
+    if (!deductResult.ok) {
+      const errorData = await deductResult.json();
+      return res.status(deductResult.status).json(errorData);
+    }
+    
+    const result = await deductResult.json();
+    res.status(200).json(result);
+    
+  } catch (error) {
+    console.error('Error deducting stock from menu:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deducting stock',
+      error: error.message
+    });
+  }
+};
+
 exports.updateMenuItem = async (req, res) => {
   try {
     console.log("📝 Update Menu Item Request Body:", req.body);

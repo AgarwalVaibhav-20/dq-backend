@@ -89,6 +89,8 @@ router.post('/deduct-stock', authMiddleware, inventoryController.deductStock);
  */
 router.post('/batch-deduct-stock', authMiddleware, inventoryController.batchDeductStock);
 
+// Fix missing units route removed - no auto-fix needed
+
 // ==================== EXPORT ROUTER ====================
 module.exports = router;
 
