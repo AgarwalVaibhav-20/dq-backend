@@ -14,7 +14,7 @@ const {
 // router.get("/all", getAllProfiles);
 
 router.get("/account/:userId",authMiddleware , getProfile);
-router.get('all/users' , authMiddleware , getAllUsers)
+router.get('/all/users' , authMiddleware , getAllUsers)
 router.put("/user/update/:userId",authMiddleware , updateProfile);
 
 // router.delete("/user/delete/:userId",authMiddleware , deleteProfile);
