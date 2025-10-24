@@ -80,7 +80,8 @@ exports.addInventory = async (req, res) => {
       inventory = new Inventory({
         itemName: itemName.trim().toLowerCase(),
         unit,
-        restaurantId,
+        // restaurantId,   before change by abhishek
+        restaurantId : req.userId, //I have changed this - abhishek
         totalQuantity: parsedQuantity,
         totalRemainingQuantity: parsedQuantity,
         totalUsedQuantity: 0,
@@ -120,7 +121,8 @@ exports.getInventory = async (req, res) => {
   try {
     console.log('=== GET INVENTORY API CALLED ===');
     
-    const restaurantId = req.query.restaurantId || req.userId;
+    // const restaurantId = req.query.restaurantId || req.userId; I have changed this - abhishek
+    const restaurantId = req.userId;
 
     if (!restaurantId) {
       return res.status(400).json({ message: "Restaurant ID is required" });

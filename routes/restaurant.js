@@ -14,7 +14,8 @@ const {
     getRestaurantsByCuisine,
     searchRestaurants,
     toggleRestaurantStatus,
-    getRestaurantStats
+    getRestaurantStats,
+    switchRestaurant
 } = require('../controllers/RestaurantController');
 
 // Restaurant statistics
@@ -35,5 +36,8 @@ router.delete('/restaurants/delete/:id', authMiddleware, deleteRestaurant);
 // Status updates
 router.patch('/restaurants/:id/status', authMiddleware, updateRestaurantStatus);
 router.patch('/restaurants/:id/toggle-status', authMiddleware, toggleRestaurantStatus);
+
+// Switch restaurant
+router.post('/switch-restaurant', authMiddleware, switchRestaurant);
 
 module.exports = router;

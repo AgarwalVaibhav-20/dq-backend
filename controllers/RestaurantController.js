@@ -1,4 +1,6 @@
 const Restaurant = require('../model/Restaurants');
+const User = require('../model/User');
+const UserProfile = require('../model/UserProfile'); // Added import
 const { validationResult } = require('express-validator');
 
 // Helper to handle validation errors
@@ -235,6 +237,85 @@ const getRestaurantStats = async (req, res) => {
     }
 };
 
+// @desc Switch user's restaurant
+const switchRestaurant = async (req, res) => {
+    try {
+        const { restaurantId } = req.body;
+        const actualUserId = req.actualUserId; // Current user's actual ID from middleware
+
+        // Validate restaurantId
+        if (!restaurantId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Restaurant ID is required' 
+            });
+        }
+
+        // Validate actualUserId
+        if (!actualUserId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'User ID is required' 
+            });
+        }
+
+        // const targetRestourantId = await UserProfile.findById( {_id : restaurantId}).restaurantId;
+
+        // Find the UserProfile document by _id (which is the restaurantId from req.body)
+        const targetUserProfile = await UserProfile.findById(restaurantId);
+        if (!targetUserProfile) {
+            return res.status(404).json({
+                success: false, 
+                message: 'Target user profile not found' 
+            });
+        }
+
+        // console.log('🔍 Found target user profile by _id:', restaurantId);
+        // console.log('🔍 Target user profile:', targetUserProfile);
+        // console.log('🔍 Target user profile restaurantId field:', targetUserProfile.restaurantId);
+
+        // Update current user's restaurantId with target user profile's restaurantId field
+        const updatedUser = await User.findByIdAndUpdate(
+            actualUserId,
+            { restaurantId: targetUserProfile.restaurantId },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'User not found' 
+            });
+        }
+
+        // console.log('🔍 Updated user:', updatedUser);
+        // console.log('🔍 Updated user restaurantId:', updatedUser.restaurantId);
+        // console.log('🔍 Generating new token...');
+        
+        const newToken = updatedUser.generateJWT();
+        // console.log('🔍 New token generated:', newToken);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Restaurant switched successfully',
+            data: {
+                userId: updatedUser._id,
+                restaurantId: updatedUser.restaurantId,
+                username: updatedUser.username
+            },
+            token: newToken // Generate new token with updated restaurantId
+        });
+
+    } catch (error) {
+        console.error('Switch restaurant error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server Error', 
+            error: error.message 
+        });
+    }
+};
+
 module.exports = {
     getAllRestaurants,
     getRestaurantById,
@@ -244,6 +325,7 @@ module.exports = {
     updateRestaurantStatus,
     toggleRestaurantStatus,
     getRestaurantStats,
+    switchRestaurant,
     getRestaurantsByCity: (req, res) => getRestaurantsByField(req, res, 'city'),
     getRestaurantsByCuisine: (req, res) => getRestaurantsByField(req, res, 'cuisine'),
     searchRestaurants: (req, res) => getRestaurantsByField(req, res, 'searchTerm')

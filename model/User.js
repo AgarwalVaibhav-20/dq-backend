@@ -27,9 +27,10 @@ const userSchema = new mongoose.Schema(
     // 🔹 Role & status
     role: {
       type: String,
-      enum: ["admin", "manager", "waiter", "cashier"],
+      enum: ["superadmin", "admin", "manager", "waiter", "cashier"],
       default: "admin",
     },
+
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -37,8 +38,15 @@ const userSchema = new mongoose.Schema(
         return this._id;
       }
     },
-    isVerified: { type: Boolean, default: false },
-    verifyOTP: { type: String },
+
+    isVerified: { 
+      type: Boolean,
+      default: false,
+    },
+
+    verifyOTP: { 
+      type: String,
+    },
 
     // Forgot password
     resetOTP: { type: String },
@@ -46,7 +54,7 @@ const userSchema = new mongoose.Schema(
     otpExpiry: { type: Date },
     status: {
       type: Number,
-      default: 1, 
+      default: 1,
     },
 
     // 🔹 Permissions (array of allowed navigation items)
@@ -81,7 +89,12 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 // 📌 Generate JWT
 userSchema.methods.generateJWT = function () {
   return jwt.sign(
-    { id: this._id, role: this.role, permissions: this.permissions },
+    { 
+      id: this._id, 
+      role: this.role, 
+      permissions: this.permissions,
+      restaurantId: this.restaurantId 
+    },
     process.env.JWT_SECRET || "your_jwt_secret",
     { expiresIn: "7d" }
   );

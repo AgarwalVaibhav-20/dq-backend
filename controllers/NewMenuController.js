@@ -4,6 +4,7 @@ const Category = require("../model/Category");
 const multer = require("multer");
 const cloudinary = require("../config/cloudinary");
 const streamifier = require("streamifier");
+const UserProfile = require("../model/UserProfile");
 // ---------------- Multer Config ----------------
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -88,6 +89,8 @@ exports.createMenuItem = async (req, res) => {
     if (!menuId?.trim()) {
       return res.status(400).json({ message: "menuId is required." });
     }
+
+    // const targetuser = await UserProfile.findById(restaurantId);
 
     // Check duplicate menuId for restaurant
     const existingMenu = await Menu.findOne({

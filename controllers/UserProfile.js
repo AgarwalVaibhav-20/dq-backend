@@ -108,3 +108,39 @@ exports.checkRestaurantPermission = async (req, res, next) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+/**
+ * @desc    Restaurant click handler - empty API for testing
+ * @route   POST /api/profile/restaurant/click
+ */
+exports.handleRestaurantClick = async (req, res) => {
+  try {
+    const { restaurantId, restaurantName } = req.body;
+    
+    console.log("=== RESTAURANT CLICK API CALLED ===");
+    console.log("Restaurant ID:", restaurantId);
+    console.log("Restaurant Name:", restaurantName);
+    console.log("Timestamp:", new Date().toISOString());
+    console.log("Request Body:", req.body);
+    
+    // यहाँ आप future में restaurant click की logic add कर सकते हैं
+    // जैसे analytics, logging, या कोई specific action
+    
+    res.json({ 
+      success: true, 
+      message: "Restaurant click recorded successfully",
+      data: {
+        restaurantId,
+        restaurantName,
+        clickedAt: new Date().toISOString(),
+        status: "success"
+      }
+    });
+  } catch (error) {
+    console.error("Error in handleRestaurantClick:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error while recording restaurant click" 
+    });
+  }
+};

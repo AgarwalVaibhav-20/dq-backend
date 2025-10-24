@@ -61,7 +61,7 @@ const userProfileSchema = new mongoose.Schema(
       required: true,
     },
     restaurantName: {
-       type: String,
+      type: String,
       default: "Not provided",
       trim: true
     },

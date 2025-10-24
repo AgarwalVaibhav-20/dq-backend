@@ -10,7 +10,7 @@ const sendEmail = require("../services/MailService")
 const formatDatatoSend = (user) => {
   const access_token = jwt.sign(
     { id: user._id, },
-    process.env.SECRET_ACCESS_KEY,
+    process.env.JWT_SECRET || "your_jwt_secret",
     { expiresIn: "7d" }
   );
 
@@ -140,7 +140,7 @@ module.exports = {
       // 5. Create JWT
       const token = jwt.sign(
         { id: user._id, email: user.email },
-        process.env.SECRET_ACCESS_KEY,
+        process.env.JWT_SECRET || "your_jwt_secret",
         { expiresIn: "7d" }
       );
 
@@ -321,17 +321,46 @@ module.exports = {
   async getRestaurantProfile(req, res) {
     try {
       const { restaurantId } = req.params;
+      
+      console.log("=== RESTAURANT PROFILE REQUEST ===");
+      console.log("Requested Restaurant ID:", restaurantId);
+      console.log("Restaurant ID type:", typeof restaurantId);
+      console.log("Restaurant ID length:", restaurantId ? restaurantId.length : 'N/A');
 
       if (!restaurantId) {
+        console.log("❌ No restaurant ID provided");
         return res.status(400).json({ message: "Restaurant ID is required" });
       }
 
-      // find by restaurantId from UserProfile
-      const restaurant = await UserProfile.findOne({ restaurantId });
+      // List all restaurants in database for debugging
+      const allRestaurants = await UserProfile.find({}, { _id: 1, restaurantId: 1, restaurantName: 1 });
+      console.log("All restaurants in database:", allRestaurants.map(r => ({
+        _id: r._id,
+        restaurantId: r.restaurantId,
+        restaurantName: r.restaurantName
+      })));
+
+      // Try to find by restaurantId field first
+      let restaurant = await UserProfile.findOne({ restaurantId });
+      console.log("Search by restaurantId field:", restaurant ? "Found" : "Not found");
+      
+      // If not found, try to find by _id
+      if (!restaurant) {
+        console.log("Trying to find by _id...");
+        restaurant = await UserProfile.findById(restaurantId);
+        console.log("Search by _id:", restaurant ? "Found" : "Not found");
+      }
 
       if (!restaurant) {
+        console.log("❌ Restaurant not found in database");
         return res.status(404).json({ message: "Restaurant not found" });
       }
+
+      console.log("✅ Restaurant found:", {
+        _id: restaurant._id,
+        restaurantId: restaurant.restaurantId,
+        restaurantName: restaurant.restaurantName
+      });
 
       return res.status(200).json({
         success: true,
@@ -400,6 +429,68 @@ module.exports = {
     } catch (err) {
       console.error("❌ Error updating user role:", err);
       res.status(500).json({ message: err.message });
+    }
+  },
+
+  // LOGOUT
+  async logout(req, res) {
+    try {
+      const userId = req.actualUserId; // Get actual user ID from middleware
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      console.log('🔍 Logout - User role:', user.role);
+      console.log('🔍 Logout - Current restaurantId:', user.restaurantId);
+      console.log('🔍 Logout - User _id:', user._id);
+
+      // If user is superadmin, reset restaurantId to their own _id
+      if (user.role === 'superadmin') {
+        console.log('🔍 Logout - Resetting restaurantId to _id for superadmin');
+        user.restaurantId = userId;
+        await user.save();
+        console.log('🔍 Logout - Updated restaurantId:', user.restaurantId);
+      }
+
+      // Update login activity logout time
+      try {
+        const activeActivity = await LoginActivity.findOne({
+          userId: userId,
+          status: 'active'
+        });
+
+        if (activeActivity) {
+          activeActivity.logouttime = new Date();
+          activeActivity.status = 'logged_out';
+          await activeActivity.save();
+          console.log('🔍 Logout - Updated login activity');
+        }
+      } catch (activityError) {
+        console.error('Error updating login activity:', activityError);
+        // Don't fail logout if activity update fails
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Logout successful",
+        data: {
+          userId: user._id,
+          restaurantId: user.restaurantId,
+          role: user.role
+        }
+      });
+
+    } catch (error) {
+      console.error("❌ Logout error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error during logout",
+      });
     }
   }
 }

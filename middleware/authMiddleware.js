@@ -18,14 +18,13 @@ const authMiddleware = (req, res, next) => {
     const token = authHeader.split(" ")[1];
     console.log('Token:', token);
 
-    jwt.verify(token, process.env.SECRET_ACCESS_KEY, async (err, decoded) => {
+    jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret", async (err, decoded) => {
       if (err) {
         console.log('Token verification error:', err);
         return res.status(403).json({ message: "Invalid token" });
       }
 
       console.log('Decoded token:', decoded);
-      // ✅ decoded.id comes from login/signup
       const user = await User.findById(decoded.id);
       if (!user) {
         console.log('User not found with id:', decoded.id);
@@ -37,8 +36,8 @@ const authMiddleware = (req, res, next) => {
       console.log('User restaurantId type:', typeof user.restaurantId);
       console.log('User restaurantId toString:', user.restaurantId?.toString());
       req.user = user;
-      // 🔥 ALWAYS use restaurantId, never fallback to _id
       req.userId = user.restaurantId;
+      req.actualUserId = user._id;
       console.log('Final req.userId set to:', req.userId);
       console.log('⚠️ Using ONLY restaurantId, no fallback to _id');
       next();

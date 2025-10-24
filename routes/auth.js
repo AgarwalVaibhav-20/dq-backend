@@ -8,6 +8,7 @@ router.post("/signin", AuthController.login);
 router.post("/verify-otp", AuthController.verifyOtp);
 router.post("/forgot-password", AuthController.forgotPassword);
 router.post('/reset-password' , AuthController.resetOtp);
+router.post("/logout", authMiddleware, AuthController.logout);
 router.get("/user-profile/:userId", authMiddleware, AuthController.getUserProfile);
 router.get('/rest-profile/:restaurantId' , authMiddleware , AuthController.getRestaurantProfile)
 router.get('/getall/user', authMiddleware , AuthController.getAllUsers)

@@ -6,7 +6,8 @@ const {
   // deleteProfile,
   getProfile,
   updateProfile,
-  getAllUsers
+  getAllUsers,
+  handleRestaurantClick
 } = require('../controllers/UserProfile')
 // ------------------- ROUTES -------------------
 
@@ -16,6 +17,7 @@ const {
 router.get("/account/:userId",authMiddleware , getProfile);
 router.get('/all/users' , authMiddleware , getAllUsers)
 router.put("/user/update/:userId",authMiddleware , updateProfile);
+router.post("/restaurant/click", authMiddleware, handleRestaurantClick);
 
 // router.delete("/user/delete/:userId",authMiddleware , deleteProfile);
 

@@ -106,7 +106,7 @@ app.use(userProfileRoutes);
 app.use(order)
 app.use(banner)
 app.use(report)
-app.use(restaurant)
+app.use("/api/restaurant", restaurant)
 app.use(dashboard)
 app.use("/api/coupon", coupen)
 app.use("/api/login-activity", loginActivity)

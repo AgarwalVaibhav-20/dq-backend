@@ -5,7 +5,8 @@ const Supplier = require("../model/Supplier");
 // ================================
 exports.getSuppliers = async (req, res) => {
   try {
-    const restaurantId = req.query.restaurantId || req.userId;
+    const restaurantId = req.userId; //I have changed this - abhishek
+    // const restaurantId = req.query.restaurantId || req.userId;
 
     if (!restaurantId) {
       return res.status(400).json({ message: "Restaurant ID is required" });
@@ -42,7 +43,8 @@ exports.createSupplier = async (req, res) => {
       email,
       phoneNumber,
       rawItems: itemsArray, // ✅ Save as array
-      restaurantId,
+      // restaurantId,   before change by abhishek
+      restaurantId : req.userId, //I have changed this - abhishek
       inventoryId,
     });
 
