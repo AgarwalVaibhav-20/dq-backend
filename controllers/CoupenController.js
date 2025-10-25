@@ -119,6 +119,14 @@ exports.validateCouponByCode = async (req, res) => {
       });
     }
 
+    // Check max usage limit
+    if (coupon.maxUsage && coupon.usageCount >= coupon.maxUsage) {
+      return res.status(400).json({
+        success: false,
+        message: `Coupon usage limit exceeded. Used: ${coupon.usageCount}/${coupon.maxUsage}`,
+      });
+    }
+
     // calculate discount
     const discount = coupon.calculateDiscount(orderTotal);
     if (!discount.applicable) {
@@ -178,6 +186,14 @@ exports.applyCoupon = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: validity.message,
+      });
+    }
+
+    // Check max usage limit
+    if (coupon.maxUsage && coupon.usageCount >= coupon.maxUsage) {
+      return res.status(400).json({
+        success: false,
+        message: `Coupon usage limit exceeded. Used: ${coupon.usageCount}/${coupon.maxUsage}`,
       });
     }
 

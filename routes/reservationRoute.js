@@ -7,6 +7,7 @@ const {authMiddleware} = require("../middleware/authMiddleware");
 router.post("/add", authMiddleware, reservationController.createReservation);
 
 // Get all reservations (Admin/Manager only)
+router.get("/all", authMiddleware, reservationController.getAllReservations);
 router.get("/debug/all", reservationController.getAllReservations);
 
 // Debug route to get all reservations
@@ -16,7 +17,7 @@ router.get("/debug/all", reservationController.getAllReservations);
 // router.get("/restaurant/:restaurantId", authMiddleware, reservationController.getReservationsByRestaurant);
 
 // Get reservations by user
-router.get("/user/:userId", authMiddleware, reservationController.getReservationsByUser);
+// router.get("/user/:userId", authMiddleware, reservationController.getReservationsByUser);
 
 // Update reservation
 router.put("/:id", authMiddleware, reservationController.updateReservation);
