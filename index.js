@@ -30,6 +30,7 @@ const settingsRoute = require('./routes/settingsRoute.js')
 const taxRoute = require('./routes/taxRoute.js')
 const memberRoute = require('./routes/memberRoutes.js')
 const customerSettingsRoutes = require('./routes/customerSettings.js');
+const Message = require('./routes/Message.js');
 const inventoryStockSettingsRoutes = require('./routes/inventoryStockSettingsRoute.js');
 const lowStockRoutes = require('./routes/lowStockRoute.js');
 const emailTestRoutes = require('./routes/emailTestRoute.js');
@@ -113,6 +114,7 @@ app.use("/api/login-activity", loginActivity)
 app.use("/api/settings", settingsRoute)
 app.use("/api/tax", taxRoute)
 app.use("/api/customer-settings", customerSettingsRoutes);
+app.use("/api/send-message", Message);
 app.use("/api/inventory-stock-settings", inventoryStockSettingsRoutes);
 app.use("/api/low-stock", lowStockRoutes);
 app.use("/api/email-test", emailTestRoutes);

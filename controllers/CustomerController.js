@@ -1,5 +1,335 @@
 // controllers/CustomerController.js
+
 const Customer = require("../model/Customer");
+const Message = require("../model/Message");
+const Coupon = require("../model/Coupen");
+const cron = require('node-cron');
+const sendEmail = require("../services/MailService");
+const UserProfile = require("../model/UserProfile");
+const twilio = require("twilio");
+
+// ✅ Load from environment variables
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+const twilioWhatsAppNumber = process.env.TWILIO_WHATSAPP_NUMBER;
+
+// ✅ Initialize Twilio client
+const client = twilio(accountSid, authToken);
+
+// === HELPER FUNCTIONS ===
+const daysSinceCreation = (createdAt) => {
+  if (!createdAt) return 0;
+  const today = new Date();
+  const createdDate = new Date(createdAt);
+  const diffTime = Math.abs(today - createdDate);
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+const getCustomerSettings = () => ({
+  lostCustomerDays: 60,
+  highSpenderAmount: 300,
+  regularCustomerVisits: 10
+});
+
+const classifyCustomer = (customer, settings) => {
+  if (customer.corporate === true) return 'Corporate';
+  if (customer.totalSpent >= settings.highSpenderAmount) return 'High Spender';
+  if (customer.frequency >= settings.regularCustomerVisits) return 'Regular';
+  if (daysSinceCreation(customer.createdAt) >= settings.lostCustomerDays) return 'Lost Customer';
+  return 'FirstTimer';
+};
+
+// ✅ Format message with coupon details
+const formatMessageWithCoupon = (message, coupon) => {
+  if (!coupon) return message;
+
+  const couponInfo = `\n\n🎁 Special Offer: Use code ${coupon.code} to get ${coupon.discountValue}${coupon.discountType === 'percentage' ? '%' : '₹'} OFF!${coupon.minOrderValue > 0 ? ` (Min order: ₹${coupon.minOrderValue})` : ''}${coupon.expiryDate ? `\nValid until: ${new Date(coupon.expiryDate).toLocaleDateString('en-IN')}` : ''}`;
+
+  return message + couponInfo;
+};
+
+// === GENERIC MESSAGE SENDING FUNCTIONS ===
+const sendCustomEmail = async (customer, customMessage) => {
+  try {
+    await sendEmail(customer.email, "Message from Pebbles", customMessage);
+    console.log(`✅ Email sent to: ${customer.name} (${customer.email})`);
+    return { success: true };
+  } catch (error) {
+    console.error(`❌ Email failed for ${customer.name}:`, error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+const sendCustomSMS = async (customer, customMessage) => {
+  try {
+    let phone = customer.phoneNumber;
+    if (!phone.startsWith('+')) {
+      phone = '+91' + phone.replace(/^0/, '');
+    }
+
+    const response = await client.messages.create({
+      body: customMessage,
+      from: twilioPhoneNumber, // ✅ Using env variable
+      to: phone,
+    });
+
+    console.log(`✅ SMS sent to ${customer.name} (${phone})`);
+    return { success: true, sid: response.sid };
+  } catch (error) {
+    console.error(`❌ SMS failed for ${customer.name}:`, error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+const sendCustomWhatsApp = async (customer, customMessage) => {
+  try {
+    let phone = customer.phoneNumber;
+
+    if (!phone.startsWith('+')) {
+      phone = '+91' + phone.replace(/^0/, '');
+    }
+
+    const response = await client.messages.create({
+      from: twilioWhatsAppNumber, // ✅ Using env variable
+      to: `whatsapp:${phone}`,
+      body: customMessage,
+    });
+
+    console.log(`✅ WhatsApp sent to ${customer.name} (${phone})`);
+    return { success: true, sid: response.sid };
+  } catch (error) {
+    console.error(`❌ WhatsApp failed for ${customer.name}:`, error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+// === SAVE/UPDATE MESSAGE AND SEND TO CUSTOMERS ===
+exports.sendMessage = async (req, res) => {
+  try {
+    const { message, restaurantId, couponId } = req.body;
+
+    // Validation
+    if (!message || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is required'
+      });
+    }
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Restaurant ID is required'
+      });
+    }
+
+    // Get coupon details if couponId provided
+    let coupon = null;
+    if (couponId) {
+      coupon = await Coupon.findById(couponId);
+      if (!coupon) {
+        return res.status(404).json({
+          success: false,
+          message: 'Coupon not found'
+        });
+      }
+      console.log(`🎟️ Coupon attached: ${coupon.code}`);
+    }
+
+    // Save/Update message in database
+    const savedMessage = await Message.findOneAndUpdate(
+      { restaurantId },
+      { 
+        message,
+        couponId: couponId || null,
+        lastUpdated: new Date()
+      },
+      { 
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true
+      }
+    );
+
+    console.log(`💾 Message saved/updated for restaurant: ${restaurantId}`);
+
+    // Get all customers for this restaurant
+    const customers = await Customer.find({ restaurantId });
+
+    if (!customers || customers.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'Message saved but no customers found to send',
+        data: {
+          messageId: savedMessage._id,
+          totalCustomers: 0
+        }
+      });
+    }
+
+    console.log(`📤 Sending message to ${customers.length} customers...`);
+
+    // Format message with coupon
+    const finalMessage = formatMessageWithCoupon(message, coupon);
+
+    let emailCount = 0;
+    let smsCount = 0;
+    let whatsappCount = 0;
+    let failedCount = 0;
+
+    // Send message to all customers
+    for (const customer of customers) {
+      try {
+        if (customer.email) {
+          const emailResult = await sendCustomEmail(customer, finalMessage);
+          if (emailResult.success) emailCount++;
+        }
+
+        if (customer.phoneNumber) {
+          const smsResult = await sendCustomSMS(customer, finalMessage);
+          if (smsResult.success) smsCount++;
+        }
+
+        if (customer.phoneNumber) {
+          const whatsappResult = await sendCustomWhatsApp(customer, finalMessage);
+          if (whatsappResult.success) whatsappCount++;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+      } catch (error) {
+        console.error(`Failed to send to ${customer.name}:`, error);
+        failedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Message saved and sent successfully',
+      data: {
+        messageId: savedMessage._id,
+        totalCustomers: customers.length,
+        emailsSent: emailCount,
+        smsSent: smsCount,
+        whatsappSent: whatsappCount,
+        failed: failedCount,
+        couponAttached: coupon ? coupon.code : null
+      }
+    });
+
+  } catch (error) {
+    console.error('Send message error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send message',
+      error: error.message
+    });
+  }
+};
+
+
+// === GET SAVED MESSAGE FOR RESTAURANT ===
+exports.getSavedMessage = async (req, res) => {
+  try {
+    const { restaurantId } = req.query;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Restaurant ID is required'
+      });
+    }
+
+    const savedMessage = await Message.findOne({ restaurantId }).populate('couponId'); // ✅ Populate coupon
+
+    if (!savedMessage) {
+      return res.status(404).json({
+        success: false,
+        message: 'No saved message found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: savedMessage
+    });
+
+  } catch (error) {
+    console.error('Get message error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve message',
+      error: error.message
+    });
+  }
+};
+
+// === CRON JOB (Runs daily at 10AM IST) ===
+cron.schedule('0 10 * * *', async () => {
+  console.log('🚀 Daily Lost Customer Processing Started...');
+
+  try {
+    const customers = await Customer.find({});
+    const settings = getCustomerSettings();
+
+    for (const customer of customers) {
+      const type = classifyCustomer(customer, settings);
+
+      if (type === 'Lost Customer') {
+        const alreadyNotified =
+          customer.lastNotified &&
+          (new Date() - new Date(customer.lastNotified)) < (settings.lostCustomerDays * 24 * 60 * 60 * 1000);
+
+        if (alreadyNotified) {
+          console.log(`⏭️ Skipping ${customer.name}, already notified recently.`);
+          continue;
+        }
+
+        console.log(`📧 Processing: ${customer.name} (${type})`);
+
+        // Get saved message for this restaurant
+        const savedMessage = await Message.findOne({ restaurantId: customer.restaurantId }).populate('couponId'); // ✅ Populate coupon
+
+        // Use saved message if available, otherwise skip
+        if (!savedMessage || !savedMessage.message) {
+          console.log(`⚠️ No saved message for restaurant ${customer.restaurantId}, skipping ${customer.name}`);
+          continue;
+        }
+
+        // ✅ Format message with coupon if available
+        const messageToSend = formatMessageWithCoupon(savedMessage.message, savedMessage.couponId);
+
+        // Send using saved message
+        if (customer.email) {
+          await sendCustomEmail(customer, messageToSend);
+        }
+
+        if (customer.phoneNumber) {
+          await sendCustomSMS(customer, messageToSend);
+        }
+
+        if (customer.phoneNumber) {
+          await sendCustomWhatsApp(customer, messageToSend);
+        }
+
+        // Update lastNotified timestamp
+        customer.lastNotified = new Date();
+        await customer.save();
+
+        // Add delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    console.log('✅ Daily processing completed successfully.');
+  } catch (error) {
+    console.error('❌ Daily processing failed:', error);
+  }
+});
+
+console.log('✅ Lost Customer Cron Job Initialized');
+
 
 exports.createCustomer = async (req, res) => {
   try {
@@ -400,6 +730,6 @@ exports.calculateSingleCustomerTotalSpent = async (req, res) => {
     });
   } catch (err) {
     console.error("Error calculating single customer total spent:", err);
-    res.status(500).json({ error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };

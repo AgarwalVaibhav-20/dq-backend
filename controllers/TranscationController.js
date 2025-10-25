@@ -91,20 +91,26 @@ exports.getDailyCashBalance = async (req, res) => {
     let cashIn = 0;
     let cashOut = 0;
     let totalCash = 0;
+    let bankIn = 0; 
+    let bankOut = 0;
     result.forEach(r => {
       if (r._id === "CashIn") {
         cashIn = r.total;
       } else if (r._id === "CashOut") {
         cashOut = r.total;
+      } else if (r._id === "bank_in") { 
+        bankIn = r.total;
+      } else if (r._id === "bank_out") {  
+        bankOut = r.total;
       } else {
         totalCash += r.total; // Treat Cash sales as CashIn
       }
     });
-    const balance = totalCash + cashIn - cashOut;
+    const balance = totalCash + cashIn + bankIn - cashOut - bankOut;
 
     const transactionCount = await Transaction.countDocuments(matchQuery);
 
-    res.json({ balance, cashIn, cashOut, transactionCount });
+    res.json({ balance, cashIn, cashOut, bankIn, bankOut, transactionCount });
 
   } catch (error) {
     console.error("Error fetching daily cash balance and count:", error.message);

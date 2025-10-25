@@ -18,4 +18,5 @@ router.patch('/customer/reward-points/add/:id', authMiddleware, CustomerControll
 router.patch('/customer/reward-points/deduct/:id', authMiddleware, CustomerController.deductRewardPoints);
 router.post("/customer/calculate-total-spent", authMiddleware, CustomerController.calculateCustomerTotalSpent);
 router.post("/customer/calculate-total-spent/:customerId", authMiddleware, CustomerController.calculateSingleCustomerTotalSpent);
+router.post("/send-message", authMiddleware, CustomerController.sendMessage);
 module.exports = router;

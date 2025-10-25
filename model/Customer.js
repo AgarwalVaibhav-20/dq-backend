@@ -32,7 +32,7 @@ const customerSchema = new mongoose.Schema(
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      requuired: true,
+      required: true,
     },
     birthday: {
       type: Date,
@@ -67,7 +67,11 @@ const customerSchema = new mongoose.Schema(
     rewardCustomerPoints:{
       type:Number,
       default:0,
-    }
+    },
+    lastNotified: {
+    type: Date,
+    default: null, // null means abhi tak message nahi gaya
+  },
   },
   { timestamps: true }
 );
