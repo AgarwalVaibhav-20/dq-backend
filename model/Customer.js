@@ -9,12 +9,12 @@ const customerSchema = new mongoose.Schema(
     },
     membershipId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Member',
-      default: null
+      ref: "Member",
+      default: null,
     },
-    membershipName: {  // ADD THIS
+    membershipName: {
       type: String,
-      default: null
+      default: null,
     },
     email: {
       type: String,
@@ -34,12 +34,8 @@ const customerSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    birthday: {
-      type: Date,
-    },
-    anniversary: {
-      type: Date,
-    },
+    birthday: Date,
+    anniversary: Date,
     corporate: {
       type: Boolean,
       default: false,
@@ -51,8 +47,8 @@ const customerSchema = new mongoose.Schema(
     },
     customerType: {
       type: String,
-      enum: ['FirstTimer', 'Corporate', 'Regular', 'Lost Customer', 'High Spender'],
-      default: 'FirstTimer',
+      enum: ["FirstTimer", "Corporate", "Regular", "Lost Customer", "High Spender"],
+      default: "FirstTimer",
     },
     totalSpent: {
       type: Number,
@@ -64,32 +60,51 @@ const customerSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
-    rewardCustomerPoints:{
-      type:Number,
-      default:0,
+    rewardCustomerPoints: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
-    lastNotified: {
-    type: Date,
-    default: null, // null means abhi tak message nahi gaya
-  },
+    rewardByAdminPoints: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    totalReward: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true }
 );
 
-// Pre-save middleware to automatically determine customer type
-customerSchema.pre('save', function (next) {
-  if (this.isModified('frequency') || this.isModified('totalSpent')) {
-    if (this.frequency === 0) {
-      this.customerType = 'FirstTimer';
-    } else if (this.totalSpent > 500) {
-      this.customerType = 'High Spender';
-    } else if (this.frequency >= 10) {
-      this.customerType = 'Regular';
-    } else if (this.frequency >= 1 && this.frequency <= 3) {
-      this.customerType = 'Lost Customer';
-    }
-    // Corporate type is set manually in UI, not auto-calculated
+customerSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+
+  if (
+    update.rewardCustomerPoints !== undefined ||
+    update.rewardByAdminPoints !== undefined
+  ) {
+    const customerPoints = Number(update.rewardCustomerPoints ?? 0);
+    const adminPoints = Number(update.rewardByAdminPoints ?? 0);
+    update.totalReward = customerPoints + adminPoints;
   }
+
+  // Auto-assign customerType when frequency or totalSpent change
+  if (update.frequency !== undefined || update.totalSpent !== undefined) {
+    if (update.frequency === 0) {
+      update.customerType = "FirstTimer";
+    } else if (update.totalSpent > 500) {
+      update.customerType = "High Spender";
+    } else if (update.frequency >= 10) {
+      update.customerType = "Regular";
+    } else if (update.frequency >= 1 && update.frequency <= 3) {
+      update.customerType = "Lost Customer";
+    }
+  }
+
+  this.setUpdate(update);
   next();
 });
 

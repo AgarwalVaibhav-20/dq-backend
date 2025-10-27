@@ -39,6 +39,7 @@ const { startCronJobs } = require('./services/CronJobService');
 const { initializeAutoEmailService } = require('./services/AutoEmailService');
 const Waste = require('./routes/WasteRoute.js')
 const notificationRoute = require('./routes/notificationRoute.js')
+const shortcutRoute = require('./routes/keyboardshortcutRoute.js')
 dotenv.config();
 
 const app = express();
@@ -121,6 +122,7 @@ app.use("/api/email-test", emailTestRoutes);
 app.use("/api/debug", debugRoute);
 app.use("/api/notifications", notificationRoute);
 app.use(uploadRoute);
+app.use(shortcutRoute);
 // Start cron jobs
 startCronJobs();
 

@@ -8,7 +8,7 @@ router.get("/customer/all", authMiddleware, CustomerController.getAllCustomersFo
 router.get("/customer/type/:restaurantId/:customerType", authMiddleware, CustomerController.getCustomersByType);
 router.get("/customer/:restaurantId", authMiddleware, CustomerController.getAllCustomers);
 router.get("/customer/:id", authMiddleware, CustomerController.getCustomerById);
-
+router.post('/customer/admin-reward-points/add/:id', authMiddleware, CustomerController.addAdminRewardPoints);
 router.put("/customer/update/:id", authMiddleware, CustomerController.updateCustomer);
 router.put("/customer/frequency/:id", authMiddleware, CustomerController.updateCustomerFrequency);
 

@@ -1,4 +1,3 @@
-// controllers/CustomerController.js
 
 const Customer = require("../model/Customer");
 const Message = require("../model/Message");
@@ -345,24 +344,40 @@ exports.createCustomer = async (req, res) => {
       membershipId,
       membershipName,
       rewardCustomerPoints,
+      rewardByAdminPoints,
     } = req.body;
 
-    // ✅ Clean membershipId if empty string
     if (membershipId === "") {
       membershipId = null;
     }
 
     if (!name || !email || !restaurantId) {
-      return res
-        .status(400)
-        .json({ message: "Name, email, and restaurantId are required" });
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, and restaurantId are required"
+      });
     }
 
-    const existingCustomer = await Customer.findOne({ email });
+    // Check if the customer already exists
+    const existingCustomer = await Customer.findOne({ email, restaurantId });
+
     if (existingCustomer) {
-      return res.status(400).json({ message: "Email already registered" });
+      // If customer exists → only update rewardByAdminPoints by ADDING
+      const currentPoints = Number(existingCustomer.rewardByAdminPoints) || 0;
+      const pointsToAdd = Number(rewardByAdminPoints) || 0;
+
+      existingCustomer.rewardByAdminPoints = currentPoints + pointsToAdd;
+
+      await existingCustomer.save(); // pre-save hook updates totalReward
+
+      return res.status(200).json({
+        success: true,
+        message: `Existing customer updated. Added ${pointsToAdd} admin reward points.`,
+        customer: existingCustomer
+      });
     }
 
+    // Otherwise, create a new customer
     const newCustomer = new Customer({
       name,
       email,
@@ -374,29 +389,94 @@ exports.createCustomer = async (req, res) => {
       corporate,
       membershipId,
       membershipName,
-      rewardCustomerPoints,
+      rewardCustomerPoints: rewardCustomerPoints || 0,
+      rewardByAdminPoints: rewardByAdminPoints || 0,
     });
 
-    await newCustomer.save();
+    await newCustomer.save(); // pre-save hook will calculate totalReward
 
     return res.status(201).json({
+      success: true,
       message: "Customer created successfully",
-      customer: newCustomer,
+      customer: newCustomer
     });
   } catch (err) {
-    console.error("Error in createCustomer:", err);
-    return res.status(500).json({ error: err.message });
+    console.error("❌ Error in createCustomer:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Error creating customer",
+      error: err.message
+    });
   }
 };
 
+// exports.createCustomer = async (req, res) => {
+//   try {
+//     let {
+//       name,
+//       email,
+//       address,
+//       phoneNumber,
+//       restaurantId,
+//       birthday,
+//       anniversary,
+//       corporate,
+//       membershipId,
+//       membershipName,
+//       rewardCustomerPoints,
+//       rewardByAdminPoints, 
+//     } = req.body;
+
+//     if (membershipId === "") {
+//       membershipId = null;
+//     }
+
+//     if (!name || !email || !restaurantId) {
+//       return res
+//         .status(400)
+//         .json({ message: "Name, email, and restaurantId are required" });
+//     }
+
+//     const existingCustomer = await Customer.findOne({ email });
+//     if (existingCustomer) {
+//       return res.status(400).json({ message: "Email already registered" });
+//     }
+
+//     const newCustomer = new Customer({
+//       name,
+//       email,
+//       address,
+//       phoneNumber,
+//       restaurantId,
+//       birthday,
+//       anniversary,
+//       corporate,
+//       membershipId,
+//       membershipName,
+//       rewardCustomerPoints: rewardCustomerPoints || 0, // Initialize earned points
+//       rewardByAdminPoints: rewardByAdminPoints || 0, 
+//     });
+
+//     await newCustomer.save(); // The pre-save hook will calculate totalReward
+
+//     return res.status(201).json({
+//       message: "Customer created successfully",
+//       customer: newCustomer,
+//     });
+//   } catch (err) {
+//     console.error("Error in createCustomer:", err);
+//     return res.status(500).json({ error: err.message });
+//   }
+// };
+
+// Add reward points (from orders/purchases)
 exports.addRewardPoints = async (req, res) => {
   try {
     const { id } = req.params;
     const { pointsToAdd } = req.body;
 
-    console.log("🎁 Adding ${pointsToAdd} reward points to customer ${id}");
+    console.log(`🎁 Adding ${pointsToAdd} reward points to customer ${id}`);
 
-    // Validate input
     if (!pointsToAdd || pointsToAdd < 0) {
       return res.status(400).json({
         success: false,
@@ -404,7 +484,6 @@ exports.addRewardPoints = async (req, res) => {
       });
     }
 
-    // Find customer
     const customer = await Customer.findById(id);
 
     if (!customer) {
@@ -414,24 +493,22 @@ exports.addRewardPoints = async (req, res) => {
       });
     }
 
-    // Add points to existing balance
     const currentPoints = Number(customer.rewardCustomerPoints) || 0;
-    customer.rewardCustomerPoints = currentPoints + pointsToAdd;
+    customer.rewardCustomerPoints = currentPoints + Number(pointsToAdd);
+    await customer.save(); // The pre-save hook will update totalReward
 
-    // Save updated customer
-    await customer.save();
-
-    console.log(" Customer ${customer.name} now has ${customer.rewardCustomerPoints} points");
+    console.log(`✅ Customer ${customer.name} now has ${customer.rewardCustomerPoints} reward points`);
 
     res.status(200).json({
       success: true,
-      message: "Successfully added ${pointsToAdd} reward points",
+      message: `Successfully added ${pointsToAdd} reward points`,
       data: {
         customerId: customer._id,
         customerName: customer.name,
         previousPoints: currentPoints,
-        pointsAdded: pointsToAdd,
-        totalPoints: customer.rewardCustomerPoints
+        pointsAdded: Number(pointsToAdd),
+        totalPoints: customer.rewardCustomerPoints,
+        totalReward: customer.totalReward // Send back the updated total
       }
     });
   } catch (error) {
@@ -444,22 +521,21 @@ exports.addRewardPoints = async (req, res) => {
   }
 };
 
-exports.deductRewardPoints = async (req, res) => {
+// Add admin reward points (manually given by admin)
+exports.addAdminRewardPoints = async (req, res) => {
   try {
     const { id } = req.params;
-    const { pointsToDeduct } = req.body;
+    const { pointsToAdd } = req.body;
 
-    console.log(" Deducting ${pointsToDeduct} reward points from customer ${id}");
+    console.log(`👤 Admin adding ${pointsToAdd} reward points to customer ${id}`);
 
-    // Validate input
-    if (!pointsToDeduct || pointsToDeduct <= 0) {
+    if (!pointsToAdd || pointsToAdd < 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid points to deduct. Must be a positive number."
+        message: "Invalid points to add. Must be a positive number."
       });
     }
 
-    // Find customer
     const customer = await Customer.findById(id);
 
     if (!customer) {
@@ -469,30 +545,100 @@ exports.deductRewardPoints = async (req, res) => {
       });
     }
 
-    // Check if customer has enough points
-    const currentPoints = Number(customer.rewardCustomerPoints) || 0;
-    if (currentPoints < pointsToDeduct) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient reward points. Customer has ${currentPoints} points, but trying to deduct ${pointsToDeduct} points."
-      });
-    }
+    const currentAdminPoints = Number(customer.rewardByAdminPoints) || 0;
+    customer.rewardByAdminPoints = currentAdminPoints + Number(pointsToAdd);
+    await customer.save(); // The pre-save hook will update totalReward
 
-    // Deduct points
-    customer.rewardCustomerPoints = currentPoints - pointsToDeduct;
-    await customer.save();
-
-    console.log("Customer ${customer.name} now has ${customer.rewardCustomerPoints} points");
+    console.log(`✅ Customer ${customer.name} now has ${customer.rewardByAdminPoints} admin reward points`);
 
     res.status(200).json({
       success: true,
-      message: "Successfully deducted ${pointsToDeduct} reward points",
+      message: `Successfully added ${pointsToAdd} admin reward points`,
       data: {
         customerId: customer._id,
         customerName: customer.name,
-        previousPoints: currentPoints,
-        pointsDeducted: pointsToDeduct,
-        remainingPoints: customer.rewardCustomerPoints
+        previousAdminPoints: currentAdminPoints,
+        pointsAdded: Number(pointsToAdd),
+        totalAdminPoints: customer.rewardByAdminPoints,
+        totalReward: customer.totalReward // Send back the updated total
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error adding admin reward points:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding admin reward points',
+      error: error.message
+    });
+  }
+};
+
+// Deduct reward points (smart deduction: admin points first, then earned points)
+exports.deductRewardPoints = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pointsToDeduct } = req.body;
+    const numericPointsToDeduct = Number(pointsToDeduct);
+
+    console.log(`💳 Deducting ${numericPointsToDeduct} reward points from customer ${id}`);
+
+    if (!numericPointsToDeduct || numericPointsToDeduct <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid points to deduct. Must be a positive number."
+      });
+    }
+
+    const customer = await Customer.findById(id);
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    const currentRewardPoints = Number(customer.rewardCustomerPoints) || 0;
+    const currentAdminPoints = Number(customer.rewardByAdminPoints) || 0;
+    const totalAvailable = customer.totalReward; // Use the calculated total
+
+    if (totalAvailable < numericPointsToDeduct) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient reward points. Customer has ${totalAvailable} total points, but trying to deduct ${numericPointsToDeduct} points.`
+      });
+    }
+
+    let remainingToDeduct = numericPointsToDeduct;
+
+    // Deduct from admin points first
+    if (currentAdminPoints > 0) {
+      const deductFromAdmin = Math.min(currentAdminPoints, remainingToDeduct);
+      customer.rewardByAdminPoints = currentAdminPoints - deductFromAdmin;
+      remainingToDeduct -= deductFromAdmin;
+    }
+
+    // If there's still points to deduct, take from earned points
+    if (remainingToDeduct > 0) {
+      customer.rewardCustomerPoints = currentRewardPoints - remainingToDeduct;
+    }
+
+    await customer.save(); // The pre-save hook will update totalReward
+
+    console.log(`✅ Customer ${customer.name} now has ${customer.totalReward} total reward points`);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully deducted ${numericPointsToDeduct} reward points`,
+      data: {
+        customerId: customer._id,
+        customerName: customer.name,
+        previousRewardPoints: currentRewardPoints,
+        previousAdminPoints: currentAdminPoints,
+        pointsDeducted: numericPointsToDeduct,
+        remainingRewardPoints: customer.rewardCustomerPoints,
+        remainingAdminPoints: customer.rewardByAdminPoints,
+        totalReward: customer.totalReward // Send back the new total
       }
     });
   } catch (error) {
@@ -504,10 +650,11 @@ exports.deductRewardPoints = async (req, res) => {
     });
   }
 };
-// 📌 Get All Customers
+
+// ... (rest of your controller methods remain the same)
+
 exports.getAllCustomers = async (req, res) => {
   try {
-    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
     const restaurantId = req.userId;
     const filter = restaurantId ? { restaurantId } : {};
     const customers = await Customer.find(filter).populate("membershipId");
@@ -523,18 +670,14 @@ exports.getAllCustomers = async (req, res) => {
   }
 };
 
-
-// 📌 Get ALL Customers (for reservation dropdown)
 exports.getAllCustomersForReservation = async (req, res) => {
   try {
     console.log("🔍 Fetching ALL customers for reservation dropdown...");
-    // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
     const restaurantId = req.userId;
     console.log("👉 req.user.restaurantId =", req.userId);
     console.log("Type:", typeof req.userId);
     const customers = await Customer.find({ restaurantId: restaurantId }).populate("membershipId");
     console.log("📊 Total customers found:", customers.length);
-    console.log("📊 Customers:", customers);
     res.json(customers);
   } catch (err) {
     console.error("Error fetching all customers:", err);
@@ -542,8 +685,6 @@ exports.getAllCustomersForReservation = async (req, res) => {
   }
 };
 
-
-// 📌 Get Single Customer by ID
 exports.getCustomerById = async (req, res) => {
   try {
     const customer = await Customer.findOne({ _id: req.params.id, role: "Customer" }).select("-password -verifyOTP -otpExpiry");
@@ -554,20 +695,18 @@ exports.getCustomerById = async (req, res) => {
   }
 };
 
-// 📌 Update Customer
 exports.updateCustomer = async (req, res) => {
   try {
     const updates = req.body;
     const customerId = req.params.id;
 
-    // Prevent sensitive updates
     delete updates.password;
     delete updates.role;
 
     const customer = await Customer.findOneAndUpdate(
       { _id: customerId },
       updates,
-      { new: true }
+      { new: true, runValidators: true } // Added runValidators
     ).select("-password -verifyOTP -otpExpiry");
 
     if (!customer) {
@@ -600,13 +739,11 @@ exports.deleteCustomer = async (req, res) => {
   }
 };
 
-
-// 📌 Restore Customer
 exports.restoreCustomer = async (req, res) => {
   try {
     const customer = await Customer.findOneAndUpdate(
       { _id: req.params.id, role: "Customer" },
-      { status: 1 }, // mark active again
+      { status: 1 },
       { new: true }
     );
     if (!customer) return res.status(404).json({ message: "Customer not found" });
@@ -616,11 +753,9 @@ exports.restoreCustomer = async (req, res) => {
   }
 };
 
-// 📌 Get Customers by Type
 exports.getCustomersByType = async (req, res) => {
   try {
     const { restaurantId, customerType } = req.params;
-    // Decode URL-encoded customer type (e.g., "Lost%20Customer" -> "Lost Customer")
     const decodedCustomerType = decodeURIComponent(customerType);
     const customers = await Customer.find({
       restaurantId,
@@ -632,7 +767,6 @@ exports.getCustomersByType = async (req, res) => {
   }
 };
 
-// 📌 Update Customer Frequency and Type
 exports.updateCustomerFrequency = async (req, res) => {
   try {
     const { id } = req.params;
@@ -641,7 +775,7 @@ exports.updateCustomerFrequency = async (req, res) => {
     const customer = await Customer.findByIdAndUpdate(
       id,
       { frequency, totalSpent },
-      { new: true }
+      { new: true, runValidators: true } // Added runValidators
     );
 
     if (!customer) {
@@ -657,25 +791,20 @@ exports.updateCustomerFrequency = async (req, res) => {
   }
 };
 
-// 📌 Calculate and Update Customer Total Spent
 exports.calculateCustomerTotalSpent = async (req, res) => {
   try {
     const Order = require("../model/Order");
-
-    // Get all customers
     const customers = await Customer.find({});
     let updatedCount = 0;
 
     for (const customer of customers) {
-      // Calculate total spent from orders
       const orders = await Order.find({
         customerId: customer._id,
-        status: { $in: ['completed', 'served'] } // Only count completed/served orders
+        status: { $in: ['completed', 'served'] }
       });
 
       const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
-      // Update customer's totalSpent
       await Customer.findByIdAndUpdate(
         customer._id,
         { totalSpent },
@@ -686,7 +815,7 @@ exports.calculateCustomerTotalSpent = async (req, res) => {
     }
 
     res.json({
-      message: "Successfully updated total spent for ${updatedCount} customers",
+      message: `Successfully updated total spent for ${updatedCount} customers`,
       updatedCount
     });
   } catch (err) {
@@ -695,27 +824,23 @@ exports.calculateCustomerTotalSpent = async (req, res) => {
   }
 };
 
-// 📌 Calculate Total Spent for Single Customer
 exports.calculateSingleCustomerTotalSpent = async (req, res) => {
   try {
     const { customerId } = req.params;
     const Order = require("../model/Order");
 
-    // Find customer
     const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
 
-    // Calculate total spent from orders
     const orders = await Order.find({
       customerId: customerId,
-      status: { $in: ['completed', 'served'] } // Only count completed/served orders
+      status: { $in: ['completed', 'served'] }
     });
 
     const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
-    // Update customer's totalSpent
     const updatedCustomer = await Customer.findByIdAndUpdate(
       customerId,
       { totalSpent },
