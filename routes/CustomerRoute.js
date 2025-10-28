@@ -4,6 +4,8 @@ const CustomerController = require("../controllers/CustomerController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 
 router.post("/customer/add", authMiddleware, CustomerController.createCustomer);
+// Public API for customer creation (no auth required - for customer menu orders)
+router.post("/customer/public/add", CustomerController.createCustomer);
 router.get("/customer/all", authMiddleware, CustomerController.getAllCustomersForReservation);
 router.get("/customer/type/:restaurantId/:customerType", authMiddleware, CustomerController.getCustomersByType);
 router.get("/customer/:restaurantId", authMiddleware, CustomerController.getAllCustomers);

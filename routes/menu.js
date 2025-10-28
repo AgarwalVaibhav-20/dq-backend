@@ -14,6 +14,9 @@ const {
 } = require("../controllers/NewMenuController");
 
 router.get("/menu/allmenues", authMiddleware, getMenuItems);
+// Public API for customer menu (no auth required)
+const { getPublicMenuItems } = require("../controllers/NewMenuController");
+router.get("/menu/public/allmenues", getPublicMenuItems);
 router.post("/menu/add", authMiddleware, uploadMiddleware, createMenuItem);
 router.put('/menus/status', authMiddleware, updateMenuStatus);
 router.put("/menu/update/:id", authMiddleware, uploadMiddleware, updateMenuItem);

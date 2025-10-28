@@ -127,6 +127,35 @@ exports.getBanners = async (req, res) => {
   }
 };
 
+// Public API to get banners by restaurantId (for customer menu)
+exports.getPublicBanners = async (req, res) => {
+  try {
+    const { restaurantId } = req.query;
+    
+    console.log("🌐 Public Banner API - restaurantId:", restaurantId);
+    
+    if (!restaurantId) {
+      return res.status(400).json({ 
+        success: false,
+        message: "restaurantId is required" 
+      });
+    }
+
+    const banners = await Banner.find({ restaurantId });
+
+    console.log("✅ Public banners found:", banners.length);
+    
+    res.status(200).json({ success: true, data: banners });
+  } catch (error) {
+    console.error("Error fetching public banners:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to fetch banners",
+      error: error.message 
+    });
+  }
+};
+
 exports.updateBanner = (req, res) => {
   upload(req, res, async (err) => {
     if (err) {

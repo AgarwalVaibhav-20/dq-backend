@@ -148,6 +148,34 @@ router.get('/categories', authMiddleware, async (req, res) => {
   }
 });
 
+// Public API to get categories by restaurantId (for customer menu)
+router.get('/public/categories', async (req, res) => {
+  try {
+    const { restaurantId } = req.query;
+    
+    console.log('🌐 Public Categories API - restaurantId:', restaurantId);
+    
+    if (!restaurantId) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'restaurantId is required' 
+      });
+    }
+
+    const categories = await Category.find({ 
+      restaurantId,
+      isDeleted: false 
+    });
+    
+    console.log('✅ Public categories found:', categories.length);
+    
+    res.status(200).json({ data: categories });
+  } catch (err) {
+    console.error('❌ Public Categories API Error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 // ---------- GET CATEGORY BY ID ----------
 router.get('/category/:id', async (req, res) => {

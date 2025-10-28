@@ -307,6 +307,38 @@ exports.getMenuItems = async (req, res) => {
   }
 };
 
+// Public API to get menu items by restaurantId (for customer menu)
+exports.getPublicMenuItems = async (req, res) => {
+  try {
+    const { restaurantId } = req.query;
+    
+    console.log("🌐 Public Menu API - restaurantId:", restaurantId);
+    
+    if (!restaurantId) {
+      return res.status(400).json({ 
+        message: "restaurantId is required" 
+      });
+    }
+
+    const menuItems = await Menu.find({ 
+      restaurantId,
+      status: 1 // Only active items
+    })
+      .populate("categoryId", "categoryName")
+      .sort({ createdAt: -1 });
+
+    console.log("✅ Public menu items found:", menuItems.length);
+    
+    res.status(200).json(menuItems);
+  } catch (error) {
+    console.error("Error fetching public menu items:", error);
+    res.status(500).json({
+      message: "Failed to fetch menu items",
+      error: error.message
+    });
+  }
+};
+
 // ---------------- GET SINGLE MENU ITEM ----------------
 exports.getMenuItemById = async (req, res) => {
   try {
