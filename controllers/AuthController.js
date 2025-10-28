@@ -85,6 +85,17 @@ module.exports = {
         firstName: "Not set",
         lastName: "Not set",
         restaurantId: user._id,
+        phoneNumber: "Not provided",
+        address: "Not provided",
+        city: "Not provided",
+        pinCode: "Not provided",
+        gender: "male",
+        identity: "Not provided",
+        identityNumber: "Not provided",
+        fcm: "Not provided",
+        facebook: "Not provided",
+        instagram: "Not provided",
+        whatsapp: "Not provided",
       });
       // 7️⃣ Return response with JWT & user data
       const userData = formatDatatoSend(user);

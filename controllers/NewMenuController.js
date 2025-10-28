@@ -459,6 +459,15 @@ exports.updateMenuStatus = async (req, res) => {
   try {
     const { id, status } = req.body;
 
+    console.log('🔄 Updating menu status - Request details:', { 
+      id, 
+      status, 
+      user: req.user,
+      userId: req.userId,
+      actualUserId: req.actualUserId,
+      userRestaurantId: req.user?.restaurantId
+    });
+
     // Validate input
     if (!id || status === undefined) {
       return res.status(400).json({
@@ -476,18 +485,56 @@ exports.updateMenuStatus = async (req, res) => {
       });
     }
 
+    // Find the menu item first
+    const menuItem = await Menu.findById(id);
+    
+    if (!menuItem) {
+      return res.status(404).json({
+        success: false,
+        message: "Menu item not found",
+      });
+    }
+
+    // Check ownership - ensure the user has access to this menu item's restaurant
+    // req.userId is set by authMiddleware to user.restaurantId
+    const userRole = req.user?.role || 'user';
+    const userRestaurantId = req.userId?.toString() || req.user?.restaurantId?.toString();
+    const menuRestaurantId = menuItem.restaurantId?.toString();
+    
+    const isOwner = menuRestaurantId && userRestaurantId && menuRestaurantId === userRestaurantId;
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+    const noRestaurantCheck = !menuRestaurantId; // Menu item with no restaurant restriction
+    
+    console.log('🔍 Ownership check:', {
+      isOwner,
+      isAdmin,
+      noRestaurantCheck,
+      menuRestaurantId,
+      userRestaurantId,
+      userRole
+    });
+    
+    if (!isOwner && !isAdmin && !noRestaurantCheck) {
+      console.log('❌ Unauthorized access attempt:', {
+        menuRestaurantId,
+        userRestaurantId,
+        userId: req.user?._id,
+        userRole
+      });
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to update this menu item",
+      });
+    }
+
+    // Update the menu item status
     const updatedMenu = await Menu.findByIdAndUpdate(
       id,
       { status: numericStatus },
       { new: true, runValidators: true }
     ).populate("categoryId", "categoryName");
 
-    if (!updatedMenu) {
-      return res.status(404).json({
-        success: false,
-        message: "Menu item not found",
-      });
-    }
+    console.log('✅ Menu status updated successfully');
 
     res.status(200).json({
       success: true,

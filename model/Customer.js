@@ -79,6 +79,31 @@ const customerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Pre-save hook to update totalReward before saving
+customerSchema.pre("save", function (next) {
+  // Calculate totalReward before saving
+  if (this.isModified('rewardCustomerPoints') || this.isModified('rewardByAdminPoints') || !this.totalReward) {
+    const customerPoints = Number(this.rewardCustomerPoints) || 0;
+    const adminPoints = Number(this.rewardByAdminPoints) || 0;
+    this.totalReward = customerPoints + adminPoints;
+  }
+
+  // Auto-assign customerType when frequency or totalSpent change
+  if (this.isModified('frequency') || this.isModified('totalSpent')) {
+    if (this.frequency === 0) {
+      this.customerType = "FirstTimer";
+    } else if (this.totalSpent > 500) {
+      this.customerType = "High Spender";
+    } else if (this.frequency >= 10) {
+      this.customerType = "Regular";
+    } else if (this.frequency >= 1 && this.frequency <= 3) {
+      this.customerType = "Lost Customer";
+    }
+  }
+
+  next();
+});
+
 customerSchema.pre("findOneAndUpdate", function (next) {
   const update = this.getUpdate();
 

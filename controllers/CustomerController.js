@@ -600,7 +600,10 @@ exports.deductRewardPoints = async (req, res) => {
 
     const currentRewardPoints = Number(customer.rewardCustomerPoints) || 0;
     const currentAdminPoints = Number(customer.rewardByAdminPoints) || 0;
-    const totalAvailable = customer.totalReward; // Use the calculated total
+    // Fallback to manual calculation if totalReward is 0 or invalid
+    const totalAvailable = customer.totalReward > 0 
+      ? customer.totalReward 
+      : (currentRewardPoints + currentAdminPoints);
 
     if (totalAvailable < numericPointsToDeduct) {
       return res.status(400).json({
@@ -659,6 +662,16 @@ exports.getAllCustomers = async (req, res) => {
     const filter = restaurantId ? { restaurantId } : {};
     const customers = await Customer.find(filter).populate("membershipId");
 
+    // Calculate and update totalReward for each customer
+    for (let customer of customers) {
+      if (!customer.totalReward || customer.totalReward === 0) {
+        const customerPoints = Number(customer.rewardCustomerPoints) || 0;
+        const adminPoints = Number(customer.rewardByAdminPoints) || 0;
+        customer.totalReward = customerPoints + adminPoints;
+        await customer.save();
+      }
+    }
+
     res.status(200).json({
       success: true,
       count: customers.length,
@@ -678,6 +691,17 @@ exports.getAllCustomersForReservation = async (req, res) => {
     console.log("Type:", typeof req.userId);
     const customers = await Customer.find({ restaurantId: restaurantId }).populate("membershipId");
     console.log("📊 Total customers found:", customers.length);
+    
+    // Calculate and update totalReward for each customer
+    for (let customer of customers) {
+      if (!customer.totalReward || customer.totalReward === 0) {
+        const customerPoints = Number(customer.rewardCustomerPoints) || 0;
+        const adminPoints = Number(customer.rewardByAdminPoints) || 0;
+        customer.totalReward = customerPoints + adminPoints;
+        await customer.save();
+      }
+    }
+    
     res.json(customers);
   } catch (err) {
     console.error("Error fetching all customers:", err);
