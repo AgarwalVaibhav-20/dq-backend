@@ -88,14 +88,28 @@ exports.getQrById = async (req, res) => {
 
 // Delete QR
 exports.deleteQr = async (req, res) => {
-
   try {
-    const qr = await QrCode.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+    console.log("🗑️ Delete QR request received for ID:", id);
+    console.log("📋 Request params:", req.params);
+    console.log("👤 User ID:", req.userId);
+
+    if (!id) {
+      console.error("❌ No ID provided in request");
+      return res.status(400).json({ success: false, message: "QR ID is required" });
+    }
+
+    const qr = await QrCode.findByIdAndDelete(id);
+    
     if (!qr) {
+      console.error("❌ QR not found with ID:", id);
       return res.status(404).json({ success: false, message: "QR not found" });
     }
-    res.status(200).json({ success: true, message: "QR deleted" });
+
+    console.log("✅ QR deleted successfully:", qr._id);
+    res.status(200).json({ success: true, message: "QR deleted successfully" });
   } catch (error) {
+    console.error("❌ Error deleting QR:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
