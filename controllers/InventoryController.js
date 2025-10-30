@@ -573,6 +573,7 @@ exports.batchDeductStock = async (req, res) => {
           error: error.message
         });
       }
+
     }
 
     if (errors.length > 0 && results.length === 0) {
@@ -1262,3 +1263,4 @@ exports.batchDeductStock = async (req, res) => {
 //     res.status(500).json({ message: "Error updating stock", error: err.message });
 //   }
 // };
+
