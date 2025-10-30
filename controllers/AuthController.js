@@ -25,6 +25,21 @@ const formatDatatoSend = (user) => {
   };
 };
 
+async function forceLogoutByUserId(req, res) {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+
+    await LoginActivity.updateMany(
+      { userId, status: "active" },
+      { $set: { status: "logged_out", logouttime: new Date() } }
+    );
+    return res.status(200).json({ success: true, message: 'Forced logout (stale sessions closed)' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   // SIGNUP
   async signup(req, res) {
@@ -470,17 +485,14 @@ module.exports = {
 
       // Update login activity logout time
       try {
-        const activeActivity = await LoginActivity.findOne({
+        // SABHI active session logout karo - stale session ke liye fix
+        await LoginActivity.updateMany({
           userId: userId,
           status: 'active'
+        }, {
+          $set: { logouttime: new Date(), status: 'logged_out' }
         });
-
-        if (activeActivity) {
-          activeActivity.logouttime = new Date();
-          activeActivity.status = 'logged_out';
-          await activeActivity.save();
-          console.log('🔍 Logout - Updated login activity');
-        }
+        console.log('🔍 Logout - All active login activities (if any) have been logged out');
       } catch (activityError) {
         console.error('Error updating login activity:', activityError);
         // Don't fail logout if activity update fails
@@ -503,7 +515,8 @@ module.exports = {
         message: "Server error during logout",
       });
     }
-  }
-}
+  },
+  forceLogoutByUserId
+};
 
 
