@@ -62,7 +62,10 @@ exports.createOrder = async (req, res) => {
     };
     orderData.customerName = customerName || "Walk-in Customer";
 
+    let finalCustomerId = null;
+
     if (customerId) {
+      finalCustomerId = customerId;
       orderData.customerId = customerId;
       // Fetch customer address if customerId is provided
       const customer = await Customer.findById(customerId);
@@ -85,11 +88,331 @@ exports.createOrder = async (req, res) => {
       }
 
       if (customer) {
+        finalCustomerId = customer._id;
         orderData.customerId = customer._id;
         if (customer.address) {
           orderData.customerAddress = customer.address;
         }
       }
+    }
+
+    // Check if there's an existing pending order for the same customer AND same table number
+    if (finalCustomerId && tableNumber) {
+      const existingPendingOrder = await Order.findOne({
+        customerId: finalCustomerId,
+        restaurantId: finalRestaurantId,
+        tableNumber: tableNumber, // Also check table number
+        paymentStatus: 'pending'
+      }).sort({ createdAt: -1 }); // Get the most recent pending order
+
+      if (existingPendingOrder) {
+        console.log("Found existing pending order:", existingPendingOrder._id);
+        console.log("Existing order table number:", existingPendingOrder.tableNumber);
+        console.log("New order table number:", tableNumber);
+        console.log("Existing order items:", existingPendingOrder.items.length);
+        console.log("New cart items to update:", items.length);
+
+        // Smart merge logic:
+        // 1. If item exists with same quantity → skip (don't add)
+        // 2. If item doesn't exist → add new item
+        // 3. If item exists but quantity is different → update quantity
+
+        // First, deduplicate cart items by combining same items
+        // This ensures we process unique items only
+        const deduplicatedCartMap = new Map();
+        items.forEach(cartItem => {
+          // Convert ObjectId to string for consistent comparison
+          const itemIdStr = cartItem.itemId?.toString() || cartItem.itemId;
+          const subcatIdStr = cartItem.selectedSubcategoryId?.toString() || cartItem.selectedSubcategoryId || 'null';
+          const sizeIdStr = cartItem.sizeId?.toString() || cartItem.sizeId || 'null';
+          const itemKey = `${itemIdStr}_${subcatIdStr}_${sizeIdStr}`;
+          
+          const existingCartItem = deduplicatedCartMap.get(itemKey);
+          
+          if (existingCartItem) {
+            // Same item in cart - combine quantities
+            existingCartItem.quantity = (existingCartItem.quantity || 1) + (cartItem.quantity || 1);
+          } else {
+            // New item in cart
+            deduplicatedCartMap.set(itemKey, {
+              ...cartItem,
+              quantity: cartItem.quantity || 1
+            });
+          }
+        });
+
+        // Convert deduplicated cart to array
+        const deduplicatedCartItems = Array.from(deduplicatedCartMap.values());
+        console.log(`\n📦 Cart deduplication: ${items.length} items → ${deduplicatedCartItems.length} unique items`);
+        deduplicatedCartItems.forEach(item => {
+          console.log(`   Cart item: ${item.itemName} - Qty: ${item.quantity} - ID: ${item.itemId?.toString() || item.itemId}`);
+        });
+
+        // First, deduplicate existing order items by combining same items
+        // This ensures we don't have duplicates in existing order
+        const existingItemsDedupMap = new Map();
+        existingPendingOrder.items.forEach(item => {
+          // Convert ObjectId to string for consistent comparison
+          const itemIdStr = item.itemId?.toString() || item.itemId;
+          const subcatIdStr = item.selectedSubcategoryId?.toString() || item.selectedSubcategoryId || 'null';
+          const sizeIdStr = item.sizeId?.toString() || item.sizeId || 'null';
+          const itemKey = `${itemIdStr}_${subcatIdStr}_${sizeIdStr}`;
+          
+          const existingItem = existingItemsDedupMap.get(itemKey);
+          
+          if (existingItem) {
+            // Same item exists - combine quantities
+            existingItem.quantity = (existingItem.quantity || 1) + (item.quantity || 1);
+            existingItem.subtotal = existingItem.price * existingItem.quantity;
+          } else {
+            // New item in existing order
+            const itemObj = item.toObject ? item.toObject() : item;
+            existingItemsDedupMap.set(itemKey, {
+              ...itemObj,
+              quantity: item.quantity || 1
+            });
+          }
+        });
+
+        // Replace existing items array with deduplicated items
+        existingPendingOrder.items = Array.from(existingItemsDedupMap.values());
+        console.log(`Existing order items after deduplication: ${existingPendingOrder.items.length}`);
+
+        // Create a map of deduplicated existing items for quick lookup
+        // Key: itemId + selectedSubcategoryId + sizeId
+        const existingItemsMap = new Map();
+        existingPendingOrder.items.forEach(item => {
+          // Convert ObjectId to string for consistent comparison
+          const itemIdStr = String(item.itemId?.toString() || item.itemId || '');
+          const subcatIdStr = String(item.selectedSubcategoryId?.toString() || item.selectedSubcategoryId || 'null');
+          const sizeIdStr = String(item.sizeId?.toString() || item.sizeId || 'null');
+          const itemKey = `${itemIdStr}_${subcatIdStr}_${sizeIdStr}`;
+          existingItemsMap.set(itemKey, item);
+          console.log(`   📋 Added to existing map: ${item.itemName || 'Unknown'} - Key: ${itemKey} - Qty: ${item.quantity}`);
+        });
+        
+        console.log(`\n📊 Existing order items map created with ${existingItemsMap.size} unique items`);
+
+        // Track items that need inventory deduction
+        const itemsToDeduct = [];
+
+        // Process deduplicated cart items
+        // Logic (itemKey = itemId + selectedSubcategoryId + sizeId):
+        // 1. If same item + same size + same quantity → Skip (don't add/update)
+        // 2. If same item + same quantity + different size → Add as new item (different itemKey)
+        // 3. If same item + same size + different quantity → Update quantity
+        // 4. If different item → Add as new item
+        for (const newItem of deduplicatedCartItems) {
+          // Convert ObjectId to string for consistent comparison
+          const itemIdStr = String(newItem.itemId?.toString() || newItem.itemId || '');
+          const subcatIdStr = String(newItem.selectedSubcategoryId?.toString() || newItem.selectedSubcategoryId || 'null');
+          const sizeIdStr = String(newItem.sizeId?.toString() || newItem.sizeId || 'null');
+          const itemKey = `${itemIdStr}_${subcatIdStr}_${sizeIdStr}`; // Includes sizeId for size comparison
+          
+          const newQuantity = Number(newItem.quantity) || 1;
+          const newPrice = Number(newItem.price || newItem.adjustedPrice) || 0;
+          const newSize = newItem.size || newItem.selectedSize || null;
+
+          // Debug logging
+          console.log(`\n🔍 Processing cart item: ${newItem.itemName}`);
+          console.log(`   ItemKey (itemId_subcatId_sizeId): ${itemKey}`);
+          console.log(`   Size: ${newSize || 'No size'} | SizeId: ${sizeIdStr}`);
+          console.log(`   New Quantity: ${newQuantity}`);
+          console.log(`   Existing items in map: ${existingItemsMap.size}`);
+
+          const existingItem = existingItemsMap.get(itemKey);
+
+          if (existingItem) {
+            // ItemKey matches = same item + same size (because sizeId is in itemKey)
+            // Now check quantity
+            const oldQuantity = Number(existingItem.quantity) || 1;
+            const oldSize = existingItem.size || null;
+            
+            console.log(`   ✅ Item found in existing order (same item + same size)`);
+            console.log(`   Old Size: ${oldSize || 'No size'} | Old Quantity: ${oldQuantity}`);
+            console.log(`   New Size: ${newSize || 'No size'} | New Quantity: ${newQuantity}`);
+            console.log(`   Quantities match: ${oldQuantity === newQuantity}`);
+            
+            // Case 1: Same item + same size + same quantity → Skip
+            if (oldQuantity === newQuantity) {
+              console.log(`   ⏭️ SKIPPING: Same item + same size + same quantity - no changes needed`);
+              continue; // Skip this item completely - don't add, don't update
+            } else {
+              // Case 3: Same item + same size + different quantity → Update quantity
+              console.log(`   🔄 UPDATING: Same item + same size, but quantity changed from ${oldQuantity} to ${newQuantity}`);
+              existingItem.quantity = newQuantity;
+              existingItem.price = newPrice; // Update price in case it changed
+              existingItem.subtotal = newPrice * newQuantity;
+              existingItem.taxAmount = Number(newItem.taxAmount) || 0;
+              existingItem.taxPercentage = Number(newItem.taxPercentage) || 0;
+              // Update size if provided (should be same, but update just in case)
+              if (newSize) {
+                existingItem.size = newSize;
+              }
+              if (newItem.sizeId) {
+                existingItem.sizeId = newItem.sizeId;
+              }
+              
+              // Track for inventory deduction (only if quantity increased)
+              const quantityDifference = newQuantity - oldQuantity;
+              if (quantityDifference > 0) {
+                itemsToDeduct.push({
+                  ...newItem,
+                  quantity: quantityDifference // Only deduct the difference
+                });
+              }
+              // Note: If quantity decreased, we're not restoring inventory here
+              // In production, you might want to restore inventory for decreased quantities
+            }
+          } else {
+            // ItemKey doesn't match = different item OR different size
+            // Case 2: Same item + same quantity + different size → Add as new item
+            // Case 4: Different item → Add as new item
+            console.log(`   ➕ ADDING: Item not found in existing order (different item or different size)`);
+            console.log(`   Size: ${newSize || 'No size'} | Quantity: ${newQuantity}`);
+            const newItemToAdd = {
+              itemId: newItem.itemId,
+              itemName: newItem.itemName,
+              price: newPrice,
+              quantity: newQuantity,
+              selectedSubcategoryId: newItem.selectedSubcategoryId || null,
+              sizeId: newItem.sizeId || null,
+              size: newSize,
+              subtotal: newPrice * newQuantity,
+              taxPercentage: Number(newItem.taxPercentage) || 0,
+              taxAmount: Number(newItem.taxAmount) || 0
+            };
+            
+            existingPendingOrder.items.push(newItemToAdd);
+            
+            // Add to map immediately so if same item appears again in same batch, it won't be duplicated
+            existingItemsMap.set(itemKey, newItemToAdd);
+            
+            // Track for inventory deduction
+            itemsToDeduct.push(newItem);
+          }
+        }
+
+        // Also remove items from existing order that are not in new cart
+        // (optional - if you want to remove items that were removed from cart)
+        // For now, we'll keep this commented out as user didn't mention removing items
+        // existingPendingOrder.items = existingPendingOrder.items.filter(existingItem => {
+        //   const itemKey = `${existingItem.itemId}_${existingItem.selectedSubcategoryId || 'null'}_${existingItem.sizeId || 'null'}`;
+        //   return items.some(newItem => {
+        //     const newItemKey = `${newItem.itemId}_${newItem.selectedSubcategoryId || 'null'}_${newItem.sizeId || 'null'}`;
+        //     return itemKey === newItemKey;
+        //   });
+        // });
+
+        // Recalculate totals from updated items array
+        const newSubtotal = existingPendingOrder.items.reduce((sum, item) => sum + item.subtotal, 0);
+        const newTax = existingPendingOrder.items.reduce((sum, item) => sum + (item.taxAmount || 0), 0);
+        
+        // Update order totals
+        existingPendingOrder.subtotal = newSubtotal;
+        existingPendingOrder.tax = newTax;
+        
+        // Apply discount if exists
+        const discountAmount = existingPendingOrder.discount 
+          ? (newSubtotal * existingPendingOrder.discount) / 100 
+          : 0;
+        
+        existingPendingOrder.totalAmount = newSubtotal + newTax - discountAmount;
+
+        // Update other fields if provided
+        if (kotGenerated !== undefined) existingPendingOrder.kotGenerated = kotGenerated;
+        if (tableNumber) existingPendingOrder.tableNumber = tableNumber;
+        if (orderType) existingPendingOrder.orderType = orderType;
+        if (paymentStatus) existingPendingOrder.paymentStatus = paymentStatus;
+
+        // Save updated order
+        const updatedOrder = await existingPendingOrder.save();
+        console.log("Order updated successfully with new cart items:", updatedOrder._id);
+
+        // Deduct inventory only for new items or quantity differences
+        // Items with same quantity are skipped (already deducted)
+        if (itemsToDeduct.length > 0) {
+          try {
+            const { deductInventory } = require("../services/InventoryService");
+            
+            const inventoryResult = await deductInventory(
+              itemsToDeduct, 
+              finalRestaurantId, 
+              updatedOrder._id, 
+              'order'
+            );
+          
+          if (!inventoryResult.success) {
+            console.error("Inventory deduction failed for order update:", inventoryResult.errors);
+          }
+          
+            if (inventoryResult.warnings.length > 0) {
+              console.warn("Inventory deduction warnings for order update:", inventoryResult.warnings);
+            }
+            
+          } catch (inventoryError) {
+            console.error("Error deducting inventory for order update:", inventoryError);
+          }
+        } else {
+          console.log("No inventory deduction needed - all items have same quantity or are already present");
+        }
+
+        // Credit reward points only for new items or quantity differences
+        if (finalCustomerId && itemsToDeduct.length > 0) {
+          try {
+            const Menu = require("../model/Menu");
+            
+            let totalRewardPoints = 0;
+            
+            for (const item of itemsToDeduct) {
+              const menuItem = await Menu.findById(item.itemId);
+              if (menuItem && menuItem.rewardPoints) {
+                totalRewardPoints += menuItem.rewardPoints * (item.quantity || 1);
+              }
+            }
+            
+            if (totalRewardPoints > 0) {
+              await Customer.findByIdAndUpdate(
+                finalCustomerId,
+                { $inc: { earnedPoints: totalRewardPoints } },
+                { new: true }
+              );
+              
+              console.log(`Credited ${totalRewardPoints} reward points to customer ${finalCustomerId}`);
+            }
+          } catch (rewardError) {
+            console.error("Error crediting reward points:", rewardError);
+          }
+        }
+
+        await updatedOrder.populate("customerId", "name email");
+        if (updatedOrder.deliveryId) {
+          await updatedOrder.populate("deliveryId", "deliveryPerson status");
+        }
+
+        console.log("=== ORDER UPDATED SUCCESSFULLY ===");
+        return res.status(200).json({
+          success: true,
+          message: "Order updated successfully (items merged with existing pending order)",
+          data: updatedOrder,
+          order: updatedOrder
+        });
+      }
+    }
+
+    // Process items array to ensure size field is properly set
+    if (orderData.items && Array.isArray(orderData.items)) {
+      orderData.items = orderData.items.map(item => {
+        // Convert selectedSize to size if size is not present
+        if (!item.size && item.selectedSize) {
+          item.size = item.selectedSize;
+        }
+        // Ensure sizeId is properly set
+        if (!item.sizeId && item.sizeId === undefined) {
+          item.sizeId = null;
+        }
+        return item;
+      });
     }
 
     // Add additional fields if provided

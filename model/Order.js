@@ -24,6 +24,15 @@ const orderItemSchema = new mongoose.Schema({
     ref: 'SubCategory',
     default: null
   },
+  sizeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  },
+  size: {
+    type: String,
+    default: null,
+    trim: true
+  },
   subtotal: {
     type: Number,
     required: true

@@ -12,14 +12,18 @@ const checkItemLowStock = async (item, restaurantId) => {
     const stockSettings = await InventoryStockSettings.findOne({ restaurantId });
     const threshold = stockSettings?.lowStockThreshold || 10;
 
-    // Get current quantity
+    // Get current quantity - prioritize totalRemainingQuantity first
     let currentQuantity = null;
-    if (item.stock?.quantity !== undefined && item.stock.quantity !== null) {
+    if (item.totalRemainingQuantity !== undefined && item.totalRemainingQuantity !== null) {
+      currentQuantity = item.totalRemainingQuantity;
+    } else if (item.stock?.quantity !== undefined && item.stock.quantity !== null) {
       currentQuantity = item.stock.quantity;
     } else if (item.stock?.totalQuantity !== undefined && item.stock.totalQuantity !== null) {
       currentQuantity = item.stock.totalQuantity;
     } else if (item.quantity !== undefined && item.quantity !== null) {
       currentQuantity = item.quantity;
+    } else if (item.supplierStocks && item.supplierStocks.length > 0) {
+      currentQuantity = item.supplierStocks.reduce((sum, stock) => sum + (stock.remainingQuantity || 0), 0);
     } else if (item.suppliers && item.suppliers.length > 0) {
       currentQuantity = item.suppliers.reduce((sum, supplier) => sum + (supplier.quantity || 0), 0);
     }

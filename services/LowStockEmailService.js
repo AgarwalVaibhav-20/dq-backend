@@ -35,8 +35,11 @@ const getLowStockItems = async (restaurantId) => {
     allInventoryItems.forEach(item => {
       let currentQuantity = null;
 
-      // Try different possible quantity fields
-      if (item.stock?.quantity !== undefined && item.stock.quantity !== null) {
+      // Try different possible quantity fields - prioritize totalRemainingQuantity first
+      if (item.totalRemainingQuantity !== undefined && item.totalRemainingQuantity !== null) {
+        currentQuantity = item.totalRemainingQuantity;
+        console.log(`📊 Item ${item.itemName}: using totalRemainingQuantity = ${currentQuantity}`);
+      } else if (item.stock?.quantity !== undefined && item.stock.quantity !== null) {
         currentQuantity = item.stock.quantity;
         console.log(`📊 Item ${item.itemName}: using stock.quantity = ${currentQuantity}`);
       } else if (item.stock?.totalQuantity !== undefined && item.stock.totalQuantity !== null) {
@@ -45,6 +48,10 @@ const getLowStockItems = async (restaurantId) => {
       } else if (item.quantity !== undefined && item.quantity !== null) {
         currentQuantity = item.quantity;
         console.log(`📊 Item ${item.itemName}: using direct quantity = ${currentQuantity}`);
+      } else if (item.supplierStocks && item.supplierStocks.length > 0) {
+        // Calculate from supplier stocks (remaining quantities)
+        currentQuantity = item.supplierStocks.reduce((sum, stock) => sum + (stock.remainingQuantity || 0), 0);
+        console.log(`📊 Item ${item.itemName}: using supplierStocks total remaining = ${currentQuantity}`);
       } else if (item.suppliers && item.suppliers.length > 0) {
         currentQuantity = item.suppliers.reduce((sum, supplier) => sum + (supplier.quantity || 0), 0);
         console.log(`📊 Item ${item.itemName}: using suppliers total = ${currentQuantity}`);
@@ -55,7 +62,8 @@ const getLowStockItems = async (restaurantId) => {
         console.log(`🚨 LOW STOCK: ${item.itemName} (${currentQuantity} < ${threshold})`);
         lowStockItems.push({
           ...item.toObject(),
-          currentQuantity: currentQuantity
+          currentQuantity: currentQuantity,
+          threshold: threshold
         });
       } else {
         console.log(`✅ OK: ${item.itemName} (${currentQuantity} >= ${threshold})`);

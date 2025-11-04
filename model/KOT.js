@@ -48,6 +48,15 @@ selectedSubcategoryName: {
 type: String,
 default: ''
 },
+sizeId: {
+type: mongoose.Schema.Types.ObjectId,
+default: null
+},
+size: {
+type: String,
+default: null,
+trim: true
+},
 status: {
 type: String,
 enum: ['pending', 'preparing', 'ready', 'served'],
@@ -88,7 +97,7 @@ kotSchema.pre('save', function(next) {
 if (!this.kotNumber) {
 const timestamp = Date.now().toString().slice(-6);
 const random = Math.random().toString(36).substr(2, 3).toUpperCase();
-this.kotNumber = KOT${timestamp}${random};
+this.kotNumber = `KOT${timestamp}${random}`;
 }
 
 // Calculate total items

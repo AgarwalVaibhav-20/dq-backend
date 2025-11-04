@@ -121,13 +121,17 @@ const debugSystemStatus = async (req, res) => {
         isLowStock: false
       };
 
-      // Determine the actual quantity to use
-      if (item.stock?.quantity !== undefined && item.stock.quantity !== null) {
+      // Determine the actual quantity to use - prioritize totalRemainingQuantity first
+      if (item.totalRemainingQuantity !== undefined && item.totalRemainingQuantity !== null) {
+        analysis.usedQuantity = item.totalRemainingQuantity;
+      } else if (item.stock?.quantity !== undefined && item.stock.quantity !== null) {
         analysis.usedQuantity = item.stock.quantity;
       } else if (item.stock?.totalQuantity !== undefined && item.stock.totalQuantity !== null) {
         analysis.usedQuantity = item.stock.totalQuantity;
       } else if (item.quantity !== undefined && item.quantity !== null) {
         analysis.usedQuantity = item.quantity;
+      } else if (item.supplierStocks && item.supplierStocks.length > 0) {
+        analysis.usedQuantity = item.supplierStocks.reduce((sum, stock) => sum + (stock.remainingQuantity || 0), 0);
       } else if (item.suppliers && item.suppliers.length > 0) {
         analysis.usedQuantity = item.suppliers.reduce((sum, supplier) => sum + (supplier.quantity || 0), 0);
       }
@@ -201,8 +205,11 @@ const testLowStockWithThreshold = async (req, res) => {
       let currentQuantity = null;
       let quantitySource = 'none';
 
-      // Try different possible quantity fields
-      if (item.stock?.quantity !== undefined && item.stock.quantity !== null) {
+      // Try different possible quantity fields - prioritize totalRemainingQuantity first
+      if (item.totalRemainingQuantity !== undefined && item.totalRemainingQuantity !== null) {
+        currentQuantity = item.totalRemainingQuantity;
+        quantitySource = 'totalRemainingQuantity';
+      } else if (item.stock?.quantity !== undefined && item.stock.quantity !== null) {
         currentQuantity = item.stock.quantity;
         quantitySource = 'stock.quantity';
       } else if (item.stock?.totalQuantity !== undefined && item.stock.totalQuantity !== null) {
@@ -211,6 +218,9 @@ const testLowStockWithThreshold = async (req, res) => {
       } else if (item.quantity !== undefined && item.quantity !== null) {
         currentQuantity = item.quantity;
         quantitySource = 'direct.quantity';
+      } else if (item.supplierStocks && item.supplierStocks.length > 0) {
+        currentQuantity = item.supplierStocks.reduce((sum, stock) => sum + (stock.remainingQuantity || 0), 0);
+        quantitySource = 'supplierStocks.remaining';
       } else if (item.suppliers && item.suppliers.length > 0) {
         currentQuantity = item.suppliers.reduce((sum, supplier) => sum + (supplier.quantity || 0), 0);
         quantitySource = 'suppliers.total';
