@@ -14,8 +14,11 @@ const router = express.Router();
 // ➤ Create a new wheel
 router.post("/api/wheel/create", authMiddleware, createWheel);
 
-// ➤ Get all wheels for logged-in restaurant
+// ➤ Get all wheels for logged-in restaurant (admin)
 router.get("/api/wheel/all", authMiddleware, getAllWheels);
+
+// ➤ Public endpoint: Get active wheels for customer-facing spin page
+router.get("/api/wheel/public", getAllWheels);
 
 // ➤ Get single wheel by ID
 router.get("/single/:id", authMiddleware, getWheelById);

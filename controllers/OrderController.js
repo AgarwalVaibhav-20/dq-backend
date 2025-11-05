@@ -17,8 +17,14 @@ exports.createOrder = async (req, res) => {
       customerName,
       orderType,
       tax,
+      taxAmount,
       discount,
+      discountAmount,
+      discountPercentage,
+      discountType,
       subtotal,
+      systemCharge,
+      roundOff,
       kotGenerated,
       paymentStatus,
     } = req.body;
@@ -52,14 +58,60 @@ exports.createOrder = async (req, res) => {
     console.log("Final restaurantId:", finalRestaurantId);
     console.log("Final userId:", finalUserId);
 
+    // Validate status enum values
+    const validStatuses = ["pending", "confirmed", "preparing", "ready", "served", "completed", "cancelled"];
+    const orderStatus = status || "pending";
+    if (!validStatuses.includes(orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: [`Status must be one of: ${validStatuses.join(", ")}. Received: ${orderStatus}`]
+      });
+    }
+
+    // Calculate totalAmount if not provided (apply discount if exists)
+    let calculatedTotalAmount = totalAmount;
+    if (!calculatedTotalAmount && subtotal !== undefined) {
+      const discountAmt = discountAmount || 0;
+      const taxAmt = taxAmount || tax || 0;
+      const sysCharge = systemCharge || 0;
+      const roundOffVal = roundOff || 0;
+      calculatedTotalAmount = Math.max(0, subtotal - discountAmt + taxAmt + sysCharge + roundOffVal);
+    }
+
     let orderData = {
       items,
-      totalAmount: totalAmount || subtotal || 0,
-      status: status || "pending",
+      totalAmount: calculatedTotalAmount || subtotal || 0, // Use provided totalAmount (with discount applied) or calculate
+      status: orderStatus,
       restaurantId: finalRestaurantId,
       userId: finalUserId,
       tableNumber: tableNumber || "Table-1", // Default table if not provided
+      subtotal: subtotal || 0,
     };
+    
+    // Save discount fields (but don't apply to totalAmount)
+    // Convert to numbers to ensure proper type
+    if (discountAmount !== undefined && discountAmount !== null) {
+      orderData.discountAmount = Number(discountAmount) || 0;
+    }
+    if (discountPercentage !== undefined && discountPercentage !== null) {
+      orderData.discountPercentage = Number(discountPercentage) || 0;
+    }
+    if (discountType !== undefined && discountType !== null) {
+      orderData.discountType = String(discountType);
+    }
+    if (discount !== undefined && discount !== null) {
+      orderData.discount = Number(discount) || 0;
+    }
+    
+    console.log('💾 Saving discount fields:', {
+      discountAmount: orderData.discountAmount,
+      discountPercentage: orderData.discountPercentage,
+      discountType: orderData.discountType,
+      discountAmountType: typeof orderData.discountAmount,
+      discountPercentageType: typeof orderData.discountPercentage
+    });
+    
     orderData.customerName = customerName || "Walk-in Customer";
 
     let finalCustomerId = null;
@@ -96,17 +148,18 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    // Check if there's an existing pending order for the same customer AND same table number
+    // Check if there's an existing order (not completed/cancelled) for the same customer AND same table number
     if (finalCustomerId && tableNumber) {
       const existingPendingOrder = await Order.findOne({
         customerId: finalCustomerId,
         restaurantId: finalRestaurantId,
         tableNumber: tableNumber, // Also check table number
-        paymentStatus: 'pending'
+        status: { $nin: ['completed', 'cancelled'] } // Order should not be completed or cancelled
       }).sort({ createdAt: -1 }); // Get the most recent pending order
 
       if (existingPendingOrder) {
-        console.log("Found existing pending order:", existingPendingOrder._id);
+        console.log("Found existing order (not completed/cancelled):", existingPendingOrder._id);
+        console.log("Existing order status:", existingPendingOrder.status);
         console.log("Existing order table number:", existingPendingOrder.tableNumber);
         console.log("New order table number:", tableNumber);
         console.log("Existing order items:", existingPendingOrder.items.length);
@@ -312,12 +365,18 @@ exports.createOrder = async (req, res) => {
         existingPendingOrder.subtotal = newSubtotal;
         existingPendingOrder.tax = newTax;
         
-        // Apply discount if exists
-        const discountAmount = existingPendingOrder.discount 
-          ? (newSubtotal * existingPendingOrder.discount) / 100 
-          : 0;
+        // Apply discount if exists (use discountAmount field if available, else calculate from discount percentage)
+        const discountAmt = existingPendingOrder.discountAmount || 
+          (existingPendingOrder.discountPercentage 
+            ? (newSubtotal * existingPendingOrder.discountPercentage) / 100 
+            : (existingPendingOrder.discount 
+              ? (newSubtotal * existingPendingOrder.discount) / 100 
+              : 0));
         
-        existingPendingOrder.totalAmount = newSubtotal + newTax - discountAmount;
+        const sysCharge = existingPendingOrder.systemCharge || 0;
+        const roundOffVal = existingPendingOrder.roundOff || 0;
+        
+        existingPendingOrder.totalAmount = Math.max(0, newSubtotal - discountAmt + newTax + sysCharge + roundOffVal);
 
         // Update other fields if provided
         if (kotGenerated !== undefined) existingPendingOrder.kotGenerated = kotGenerated;
@@ -393,7 +452,7 @@ exports.createOrder = async (req, res) => {
         console.log("=== ORDER UPDATED SUCCESSFULLY ===");
         return res.status(200).json({
           success: true,
-          message: "Order updated successfully (items merged with existing pending order)",
+          message: "Order updated successfully (items merged with existing order)",
           data: updatedOrder,
           order: updatedOrder
         });
@@ -419,18 +478,38 @@ exports.createOrder = async (req, res) => {
     if (deliveryId) orderData.deliveryId = deliveryId;
     if (orderType) orderData.orderType = orderType;
     if (tax !== undefined) orderData.tax = tax;
-    if (discount !== undefined) orderData.discount = discount;
-    if (subtotal !== undefined) orderData.subtotal = subtotal;
+    if (discount !== undefined) orderData.discount = Number(discount) || 0;
+    // Note: discountAmount, discountPercentage, and discountType are already set above (lines 81-92)
+    // Don't overwrite them here
+    if (subtotal !== undefined) orderData.subtotal = Number(subtotal) || 0;
     if (kotGenerated !== undefined) orderData.kotGenerated = kotGenerated;
     if (paymentStatus) orderData.paymentStatus = paymentStatus;
 
     console.log("Final order data before saving:", JSON.stringify(orderData, null, 2));
+    console.log("💾 Discount fields in orderData before creating Order:", {
+      discountAmount: orderData.discountAmount,
+      discountPercentage: orderData.discountPercentage,
+      discountType: orderData.discountType,
+      discount: orderData.discount
+    });
 
     const order = new Order(orderData);
     console.log("Order instance created, attempting to save...");
+    console.log("💾 Discount fields in order instance:", {
+      discountAmount: order.discountAmount,
+      discountPercentage: order.discountPercentage,
+      discountType: order.discountType,
+      discount: order.discount
+    });
     
     const savedOrder = await order.save();
     console.log("Order saved successfully:", savedOrder._id);
+    console.log("💾 Discount fields in saved order:", {
+      discountAmount: savedOrder.discountAmount,
+      discountPercentage: savedOrder.discountPercentage,
+      discountType: savedOrder.discountType,
+      discount: savedOrder.discount
+    });
 
     await order.populate("customerId", "name email");
     if (order.deliveryId) {
@@ -659,10 +738,20 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
+    // Validate status enum values
+    const validStatuses = ["pending", "confirmed", "preparing", "ready", "served", "completed", "cancelled"];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid status value",
+        error: `Status must be one of: ${validStatuses.join(", ")}. Received: ${status}`
+      });
+    }
+
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!order) {
@@ -671,7 +760,118 @@ exports.updateOrderStatus = async (req, res) => {
 
     res.json({ success: true, message: "Order status updated successfully", data: order });
   } catch (err) {
+    if (err.name === 'ValidationError') {
+      const validationErrors = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: validationErrors
+      });
+    }
     res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+};
+
+exports.updateOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      subtotal,
+      discountAmount,
+      discountPercentage,
+      discountType,
+      taxAmount,
+      taxPercentage,
+      taxType,
+      systemCharge,
+      roundOff,
+      totalAmount,
+    } = req.body;
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Check if user has permission to update this order
+    if (order.restaurantId.toString() !== req.userId.toString()) {
+      return res.status(403).json({ success: false, message: "Unauthorized to update this order" });
+    }
+
+    // Update subtotal if provided (for discount application)
+    if (subtotal !== undefined) {
+      order.subtotal = Number(subtotal) || 0;
+    }
+
+    // Update discount fields if provided
+    if (discountAmount !== undefined) {
+      order.discountAmount = Number(discountAmount) || 0;
+    }
+    if (discountPercentage !== undefined) {
+      order.discountPercentage = Number(discountPercentage) || 0;
+    }
+    if (discountType !== undefined) {
+      order.discountType = discountType;
+    }
+
+    // Update tax fields if provided
+    if (taxAmount !== undefined) {
+      order.taxAmount = Number(taxAmount) || 0;
+    }
+    if (taxPercentage !== undefined) {
+      order.taxPercentage = Number(taxPercentage) || 0;
+    }
+    if (taxType !== undefined) {
+      order.taxType = taxType;
+    }
+
+    // Update other fields
+    if (systemCharge !== undefined) {
+      order.systemCharge = Number(systemCharge) || 0;
+    }
+    if (roundOff !== undefined) {
+      order.roundOff = Number(roundOff) || 0;
+    }
+
+    // Update totalAmount if explicitly provided
+    if (totalAmount !== undefined) {
+      order.totalAmount = Number(totalAmount) || 0;
+    } else {
+      // Recalculate totalAmount
+      // If subtotal is provided (discount के बाद), use it directly
+      // Otherwise calculate from original subtotal
+      const currentSubtotal = order.subtotal || 0;
+      const discountAmt = order.discountAmount || 0;
+      const taxAmt = order.taxAmount || 0;
+      const sysCharge = order.systemCharge || 0;
+      const roundOffVal = order.roundOff || 0;
+      
+      // If subtotal was updated (discount के बाद का amount), use it as totalAmount
+      // Otherwise calculate: original subtotal - discount + tax + charges
+      if (subtotal !== undefined) {
+        // Subtotal was explicitly set (discount के बाद का amount), use it as totalAmount
+        order.totalAmount = Number(subtotal) || 0;
+      } else {
+        // Calculate from original subtotal
+        order.totalAmount = Math.max(0, currentSubtotal - discountAmt + taxAmt + sysCharge + roundOffVal);
+      }
+    }
+
+    const updatedOrder = await order.save();
+
+    res.json({
+      success: true,
+      message: "Order updated successfully",
+      data: updatedOrder
+    });
+  } catch (err) {
+    console.error("Error updating order:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message
+    });
   }
 };
 

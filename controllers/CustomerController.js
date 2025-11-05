@@ -345,6 +345,7 @@ exports.createCustomer = async (req, res) => {
       membershipName,
       rewardCustomerPoints,
       rewardByAdminPoints,
+      link,
     } = req.body;
 
     if (membershipId === "") {
@@ -367,6 +368,11 @@ exports.createCustomer = async (req, res) => {
       const pointsToAdd = Number(rewardByAdminPoints) || 0;
 
       existingCustomer.rewardByAdminPoints = currentPoints + pointsToAdd;
+      
+      // Update link if provided
+      if (link !== undefined && link !== null && link.trim() !== '') {
+        existingCustomer.link = link.trim();
+      }
 
       await existingCustomer.save(); // pre-save hook updates totalReward
 
@@ -391,6 +397,7 @@ exports.createCustomer = async (req, res) => {
       membershipName,
       rewardCustomerPoints: rewardCustomerPoints || 0,
       rewardByAdminPoints: rewardByAdminPoints || 0,
+      link: link && link.trim() !== '' ? link.trim() : null,
     });
 
     await newCustomer.save(); // pre-save hook will calculate totalReward

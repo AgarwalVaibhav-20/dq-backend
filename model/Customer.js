@@ -75,6 +75,11 @@ const customerSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    link: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   { timestamps: true }
 );

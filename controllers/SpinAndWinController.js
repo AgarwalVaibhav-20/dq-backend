@@ -32,12 +32,32 @@ const createWheel = async (req, res) => {
 // ➤ Get all wheels for current restaurant
 const getAllWheels = async (req, res) => {
   try {
-    const { isActive, page = 1, limit = 10 } = req.query;
+    const { isActive, page = 1, limit = 10, restaurantId } = req.query;
+
+    // For public endpoint, use restaurantId from query params
+    // For authenticated endpoint, use req.userId
+    const filterRestaurantId = req.userId || restaurantId;
+    
+    if (!filterRestaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required"
+      });
+    }
 
     const filter = {
-      restaurantId: req.userId, // fetch only wheels for this restaurant
+      restaurantId: filterRestaurantId,
     };
-    if (isActive !== undefined) filter.isActive = isActive === "true";
+    
+    // For public endpoint, only show active wheels
+    // For authenticated endpoint, show based on isActive query param
+    if (req.userId) {
+      // Authenticated request - show all or filter by isActive
+      if (isActive !== undefined) filter.isActive = isActive === "true";
+    } else {
+      // Public request - only show active wheels
+      filter.isActive = true;
+    }
 
     const wheels = await Wheel.find(filter)
       .sort({ createdAt: -1 })
