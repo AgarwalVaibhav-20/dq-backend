@@ -728,3 +728,74 @@ exports.testOrderConnection = async (req, res) => {
     });
   }
 };
+
+exports.getOrderStatistics = async (req, res) => {
+  try {
+    // ALWAYS use req.userId (which is user.restaurantId from user collection)
+    const restaurantId = req.userId;
+
+    if (!restaurantId) {
+      return res.status(400).json({ success: false, message: 'Restaurant ID is required' });
+    }
+
+    // Get the current date
+    const now = new Date();
+    
+    // 1. Define "Today" range
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0); // Start of today
+
+    // 2. Define "This Week" range (assuming week starts on Sunday)
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - now.getDay()); // Go back to Sunday
+    weekStart.setHours(0, 0, 0, 0); // Start of that Sunday
+
+    // 3. Define "This Month" range
+    const monthStart = new Date(now);
+    monthStart.setDate(1); // First day of the current month
+    monthStart.setHours(0, 0, 0, 0); // Start of that day
+
+    // Base query for all counts
+    const baseQuery = {
+      restaurantId: restaurantId,
+      status: 'complete' // Only count 'completed' orders
+    };
+
+    // Run all count queries in parallel for better performance
+    const [dailyCount, weeklyCount, monthlyCount] = await Promise.all([
+      // Daily count
+      Order.countDocuments({
+        ...baseQuery,
+        createdAt: { $gte: todayStart }
+      }),
+      // Weekly count
+      Order.countDocuments({
+        ...baseQuery,
+        createdAt: { $gte: weekStart }
+      }),
+      // Monthly count
+      Order.countDocuments({
+        ...baseQuery,
+        createdAt: { $gte: monthStart }
+      })
+    ]);
+
+    // Send the response
+    res.json({
+      success: true,
+      data: {
+        daily: dailyCount,
+        weekly: weeklyCount,
+        monthly: monthlyCount
+      }
+    });
+
+  } catch (err) {
+    console.error("Error fetching order statistics:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message
+    });
+  }
+};

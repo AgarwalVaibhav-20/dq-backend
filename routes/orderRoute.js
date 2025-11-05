@@ -12,5 +12,6 @@ router.post('/orders/active-tables',authMiddleware , orderController.getCombined
 router.get("/:id", authMiddleware, orderController.getOrderById);
 // router.put("/:id", authMiddleware, orderController.updateOrder);
 router.delete("/:id", authMiddleware, orderController.deleteOrder);
+router.get('/order/statistics', authMiddleware, orderController.getOrderStatistics);
 
 module.exports = router;

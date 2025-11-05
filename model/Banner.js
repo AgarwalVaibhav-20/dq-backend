@@ -2,13 +2,13 @@ const mongoose = require("mongoose");
 
 const bannerSchema = new mongoose.Schema(
   {
-     restaurantId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-          // required:true,
-        },
+    restaurantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      // required:true,
+    },
     banner_1: {
-      type: String, 
+      type: String,
       required: true,
     },
     banner_2: {

@@ -40,6 +40,7 @@ const { initializeAutoEmailService } = require('./services/AutoEmailService');
 const Waste = require('./routes/WasteRoute.js')
 const notificationRoute = require('./routes/notificationRoute.js')
 const shortcutRoute = require('./routes/keyboardshortcutRoute.js')
+const SpinAndWin = require('./routes/spinaandwinRoute.js')
 dotenv.config();
 
 const app = express();
@@ -91,6 +92,7 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/", authRouter);
 app.use(Waste)
+app.use(SpinAndWin)
 app.use(category)
 app.use(customer)
 app.use(supplier)
