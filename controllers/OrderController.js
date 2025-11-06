@@ -958,7 +958,7 @@ exports.getOrderStatistics = async (req, res) => {
     // Base query for all counts
     const baseQuery = {
       restaurantId: restaurantId,
-      status: 'complete' // Only count 'completed' orders
+      status: 'completed' // Only count 'completed' orders
     };
 
     // Run all count queries in parallel for better performance
@@ -996,6 +996,70 @@ exports.getOrderStatistics = async (req, res) => {
       success: false,
       message: "Server error",
       error: err.message
+    });
+  }
+};
+
+exports.getRejectedOrderStatistics = async (req, res) => {
+  try {
+    const restaurantId = req.userId;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Restaurant ID is required',
+      });
+    }
+
+    const now = new Date();
+
+    // Define date ranges
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+
+    const monthStart = new Date(now);
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    // Base query
+    const baseQuery = { restaurantId, status: 'cancelled' };
+
+    // Run all queries in parallel
+    const [dailyRejected, weeklyRejected, monthlyRejected] = await Promise.all([
+      Order.countDocuments({
+        ...baseQuery,
+        createdAt: { $gte: todayStart },
+      }),
+      Order.countDocuments({
+        ...baseQuery,
+        createdAt: { $gte: weekStart },
+      }),
+      Order.countDocuments({
+        ...baseQuery,
+        createdAt: { $gte: monthStart },
+      }),
+    ]);
+
+    // Send response
+    res.json({
+      success: true,
+      data: {
+        daily: dailyRejected,
+        weekly: weeklyRejected,
+        monthly: monthlyRejected,
+      },
+    });
+
+  } catch (err) {
+    console.error('Error fetching rejected order statistics:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message,
     });
   }
 };

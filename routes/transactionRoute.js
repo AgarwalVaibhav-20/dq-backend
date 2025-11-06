@@ -42,7 +42,8 @@ router.post("/bankout", authMiddleware, async (req, res) => {
     req.body.type = "bank_out";  
     TransactionController.createCashTransaction(req, res);
 });
-
+router.get('/dashboard/monthly-chart-data', TransactionController.getMonthlyChartData);
+router.post('/getReportPaymentType', authMiddleware, TransactionController.getPaymentTypeReport);
 module.exports = router;
 
 

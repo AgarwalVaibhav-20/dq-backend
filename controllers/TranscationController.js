@@ -91,16 +91,16 @@ exports.getDailyCashBalance = async (req, res) => {
     let cashIn = 0;
     let cashOut = 0;
     let totalCash = 0;
-    let bankIn = 0; 
+    let bankIn = 0;
     let bankOut = 0;
     result.forEach(r => {
       if (r._id === "CashIn") {
         cashIn = r.total;
       } else if (r._id === "CashOut") {
         cashOut = r.total;
-      } else if (r._id === "bank_in") { 
+      } else if (r._id === "bank_in") {
         bankIn = r.total;
-      } else if (r._id === "bank_out") {  
+      } else if (r._id === "bank_out") {
         bankOut = r.total;
       } else {
         totalCash += r.total; // Treat Cash sales as CashIn
@@ -364,7 +364,7 @@ exports.getTransactionsByRestaurant = async (req, res) => {
     console.log('req.user:', req.user);
     console.log('req.user.restaurantId:', req.user?.restaurantId);
     console.log('req.user._id:', req.user?._id);
-    
+
     // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
     const restaurantId = req.userId;
     console.log("🔍 Final restaurantId used:", restaurantId);
@@ -401,7 +401,7 @@ exports.getTransactionsByRestaurant = async (req, res) => {
   }
 };
 
-exports.getTransactionsByYearRestaurant = async(req,res)=>{
+exports.getTransactionsByYearRestaurant = async (req, res) => {
   try {
     const { restaurantId } = req.params;
     const { year } = req.query; // <-- year query me aayega
@@ -445,7 +445,96 @@ exports.getTransactionsByYearRestaurant = async(req,res)=>{
     });
   }
 };
+exports.getMonthlyChartData = async (req, res) => {
+  try {
+    const { year, month, restaurantId } = req.query;
 
+    // Validate inputs
+    if (!year || !month || !restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Year, month, and restaurantId are required'
+      });
+    }
+
+    const selectedYear = parseInt(year);
+    const selectedMonth = parseInt(month) - 1; // JS months are 0-indexed
+
+    // Get start and end dates for the selected month
+    const startOfMonth = new Date(selectedYear, selectedMonth, 1);
+    const endOfMonth = new Date(selectedYear, selectedMonth + 1, 0); // Last day of month
+    const daysInMonth = endOfMonth.getDate();
+
+    // Aggregate transactions by day
+    const dailyStats = await Transaction.aggregate([
+      {
+        $match: {
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          createdAt: {
+            $gte: startOfMonth,
+            $lte: new Date(selectedYear, selectedMonth + 1, 1) // Start of next month
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $dayOfMonth: '$createdAt' },
+          totalRevenue: { $sum: '$total' },
+          totalTransactions: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create labels for all days in the month
+    const dayLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}`);
+
+    // Initialize arrays with zeros
+    const revenueData = new Array(daysInMonth).fill(0);
+    const transactionData = new Array(daysInMonth).fill(0);
+
+    // Fill in the actual data
+    dailyStats.forEach(stat => {
+      const dayIndex = stat._id - 1; // Convert to 0-indexed
+      if (dayIndex >= 0 && dayIndex < daysInMonth) {
+        revenueData[dayIndex] = stat.totalRevenue;
+        transactionData[dayIndex] = stat.totalTransactions;
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        labels: dayLabels,
+        datasets: [
+          {
+            label: 'Revenue (₹)',
+            data: revenueData,
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1,
+          },
+          {
+            label: 'Orders',
+            data: transactionData,
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            tension: 0.1,
+          }
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Error in getMonthlyChartData:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch monthly chart data',
+      error: error.message
+    });
+  }
+};
 // ---------------- GET TRANSACTION BY ID ----------------
 exports.getTransactionById = async (req, res) => {
   const { transactionId } = req.params;
@@ -560,7 +649,7 @@ exports.getTransactionByCustomer = async (req, res) => {
   try {
     // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
     const restaurantId = req.userId;
-    
+
     const transactions = await Transaction.find({
       customerId: req.params.id,
       restaurantId,
@@ -596,7 +685,7 @@ exports.getTransactionsByPaymentType = async (req, res) => {
 
     // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
     const restaurantId = req.userId;
-    
+
     const transactions = await Transaction.find({
       type,
       restaurantId,
@@ -623,7 +712,7 @@ exports.getPOSTransactions = async (req, res) => {
   try {
     // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
     const restaurantId = req.userId;
-    
+
     const transactions = await Transaction.find({
       restaurantId,
       isDeleted: { $ne: true },
@@ -642,6 +731,99 @@ exports.getPOSTransactions = async (req, res) => {
       success: false,
       message: "Server error",
       error: err.message
+    });
+  }
+};
+
+
+exports.getPaymentTypeReport = async (req, res) => {
+  try {
+    const { restaurantId, startDate, endDate } = req.body;
+
+    console.log('Payment Type Report Request:', { restaurantId, startDate, endDate });
+
+    // Validation
+    if (!restaurantId || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'restaurantId, startDate, and endDate are required'
+      });
+    }
+
+    // Parse dates and set time boundaries
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    console.log('Date range:', { start, end });
+
+    // Build query
+    let query = {
+      createdAt: {
+        $gte: start,
+        $lte: end
+      }
+    };
+
+    // Handle restaurantId - check if it's a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+      query.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+    } else {
+      query.restaurantId = restaurantId;
+    }
+
+    console.log('Query:', JSON.stringify(query, null, 2));
+
+    // Fetch transactions
+    const transactions = await Transaction.find(query);
+    console.log(`Found ${transactions.length} transactions`);
+
+    if (transactions.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        message: 'No transactions found for the selected date range'
+      });
+    }
+
+    // Group by payment type
+    const paymentStats = {};
+    transactions.forEach(txn => {
+      const paymentType = txn.type || 'Unknown';
+      
+      if (!paymentStats[paymentType]) {
+        paymentStats[paymentType] = {
+          payment_type: paymentType,
+          total_count: 0,
+          total_amount: 0
+        };
+      }
+      
+      paymentStats[paymentType].total_count++;
+      paymentStats[paymentType].total_amount += (txn.total || 0);
+    });
+
+    // Convert to array and format
+    const result = Object.values(paymentStats).map(stat => ({
+      payment_type: stat.payment_type,
+      total_count: stat.total_count,
+      total_amount: stat.total_amount.toFixed(2)
+    }));
+
+    console.log('Payment Stats Result:', result);
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error in getPaymentTypeReport:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch payment type report',
+      error: error.message
     });
   }
 };
