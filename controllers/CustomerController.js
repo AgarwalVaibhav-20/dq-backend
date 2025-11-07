@@ -6,7 +6,7 @@ const cron = require('node-cron');
 const sendEmail = require("../services/MailService");
 const UserProfile = require("../model/UserProfile");
 const twilio = require("twilio");
-
+const mongoose = require('mongoose')
 // ✅ Load from environment variables
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -227,6 +227,139 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
+exports.getCustomerReport = async (req, res) => {
+  try {
+    // 1. Get restaurantId (supports query param OR JWT)
+    const restaurantId = req.query.restaurantId || req.user?.restaurantId || req.userId;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required",
+      });
+    }
+
+    console.log('🔍 Generating customer report for restaurantId:', restaurantId);
+
+    // 2. Fetch ALL customers - Mongoose auto-casts string → ObjectId
+    const customers = await Customer.find({ restaurantId }).lean();
+
+    // 3. Settings (make them configurable later if needed)
+    const settings = {
+      lostCustomerDays: 60,
+      highSpenderAmount: 300,
+      regularCustomerVisits: 10,
+    };
+
+    // 4. Early return if no customers
+    if (!customers || customers.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          totalCustomers: 0,
+          totalSpending: 0,
+          totalRewards: 0,
+          averageSpendingPerCustomer: 0,
+          breakdownByType: [],
+          highSpendersCount: 0,
+          regularCustomersCount: 0,
+          newCustomersCount: 0,
+          lostCustomersCount: 0,
+          corporateCustomersCount: 0,
+          activeCustomersCount: 0,
+        },
+      });
+    }
+
+    // 5. Classify function (updated "FirstTimer" → "New Customer" for UI)
+    const classifyCustomer = (customer) => {
+      if (customer.corporate === true) return 'Corporate';
+      if (Number(customer.totalSpent || 0) >= settings.highSpenderAmount) return 'High Spender';
+      if (Number(customer.frequency || 0) >= settings.regularCustomerVisits) return 'Regular';
+      if (daysSinceCreation(customer.createdAt) >= settings.lostCustomerDays) return 'Lost Customer';
+      return 'New Customer'; // ← Changed for better UI label
+    };
+
+    // 6. Reduce to calculate everything in one pass
+    const result = customers.reduce(
+      (acc, customer) => {
+        // Spending & Rewards
+        const spent = Number(customer.totalSpent) || 0;
+        const rewards = Number(
+          customer.totalReward ||
+          (customer.rewardCustomerPoints || 0) + (customer.rewardByAdminPoints || 0)
+        );
+
+        acc.totalSpending += spent;
+        acc.totalRewards += rewards;
+
+        // Classification & counting
+        const type = classifyCustomer(customer);
+        acc.typeCounts[type] = (acc.typeCounts[type] || 0) + 1;
+
+        return acc;
+      },
+      {
+        totalSpending: 0,
+        totalRewards: 0,
+        typeCounts: {
+          'Corporate': 0,
+          'High Spender': 0,
+          'Regular': 0,
+          'Lost Customer': 0,
+          'New Customer': 0,
+        },
+      }
+    );
+
+    // 7. Final calculations
+    const totalCustomers = customers.length;
+    const averageSpendingPerCustomer =
+      totalCustomers > 0 ? result.totalSpending / totalCustomers : 0;
+
+    const breakdownByType = Object.entries(result.typeCounts)
+      .map(([type, count]) => ({ type, count }))
+      .filter((item) => item.count > 0)
+      .sort((a, b) => b.count - a.count); // Largest first
+
+    // 8. Individual segment counts (exact match for frontend cards)
+    const highSpendersCount = result.typeCounts['High Spender'];
+    const regularCustomersCount = result.typeCounts['Regular'];
+    const newCustomersCount = result.typeCounts['New Customer'];
+    const lostCustomersCount = result.typeCounts['Lost Customer'];
+    const corporateCustomersCount = result.typeCounts['Corporate'];
+    const activeCustomersCount = totalCustomers - lostCustomersCount;
+
+    // 9. Clean numbers (2 decimal places)
+    const report = {
+      totalCustomers,
+      totalSpending: Number(result.totalSpending.toFixed(2)),
+      totalRewards: Number(result.totalRewards.toFixed(2)),
+      averageSpendingPerCustomer: Number(averageSpendingPerCustomer.toFixed(2)),
+      breakdownByType,
+      highSpendersCount,
+      regularCustomersCount,
+      newCustomersCount,
+      lostCustomersCount,
+      corporateCustomersCount,
+      activeCustomersCount,
+    };
+
+    console.log('✅ Customer report generated:', report);
+
+    res.status(200).json({
+      success: true,
+      data: report,
+    });
+  } catch (error) {
+    console.error('❌ Error in getCustomerReport:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
 
 // === GET SAVED MESSAGE FOR RESTAURANT ===
 exports.getSavedMessage = async (req, res) => {

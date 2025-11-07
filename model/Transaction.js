@@ -212,48 +212,10 @@ transactionSchema.pre('save', function (next) {
     this.items.forEach((item) => {
       item.subtotal = item.price * item.quantity;
     });
-
-    // Calculate sub_total
-    // this.sub_total = this.items.reduce((sum, item) => sum + item.subtotal, 0);
-
-    // // Tax & Discount amounts
-    // this.taxAmount = (this.sub_total * this.tax) / 100;
-    // this.discountAmount = (this.sub_total * this.discount) / 100;
-
-    // // Final total for sales
-    // this.total =
-    //   this.sub_total + this.taxAmount +this.systemCharge - this.discountAmount - this.roundOff;
   }
 
   next();
 });
-// 🔹 Pre-save hook
-// transactionSchema.pre('save', function (next) {
-//   // Generate unique transaction ID if missing
-//   if (!this.transactionId) {
-//     const timestamp = Date.now().toString().slice(-8);
-//     const random = Math.random().toString(36).substr(2, 4).toUpperCase();
-//     this.transactionId = `TXN${timestamp}${random}`;
-//   }
-
-//   // Recalculate item subtotals
-//   this.items.forEach((item) => {
-//     item.subtotal = item.price * item.quantity;
-//   });
-
-//   // Calculate sub_total
-//   this.sub_total = this.items.reduce((sum, item) => sum + item.subtotal, 0);
-
-//   // Tax & Discount amounts
-//   this.taxAmount = (this.sub_total * this.tax) / 100;
-//   this.discountAmount = (this.sub_total * this.discount) / 100;
-
-//   // Final total
-//   this.total =
-//     this.sub_total + this.taxAmount - this.discountAmount + this.roundOff;
-
-//   next();
-// });
 
 module.exports = mongoose.model('Transaction', transactionSchema);
 

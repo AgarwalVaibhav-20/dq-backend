@@ -4,7 +4,7 @@ const TransactionController = require("../controllers/TranscationController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 
 // CRUD routes
-router.get("/get-all/transaction", authMiddleware, TransactionController.getAllTransactions);
+router.get("/get-all/transaction/:restaurantId", authMiddleware, TransactionController.getAllTransactions);
 router.get("/transactionById/:transactionId", authMiddleware, TransactionController.getTransactionById);
 router.get("/get-by-restaurant/transaction/:restaurantId", authMiddleware, TransactionController.getTransactionsByRestaurant);
 router.get("/get-by-year-restaurant/transaction/:restaurantId", authMiddleware, TransactionController.getTransactionsByYearRestaurant);
@@ -44,9 +44,12 @@ router.post("/bankout", authMiddleware, async (req, res) => {
 });
 router.get('/dashboard/monthly-chart-data', TransactionController.getMonthlyChartData);
 router.post('/getReportPaymentType', authMiddleware, TransactionController.getPaymentTypeReport);
+
+
+router.get("/transactions/daily", authMiddleware, TransactionController.getDailyReport);
+router.get("/payment/total", authMiddleware, TransactionController.getTotalPaymentReport);
+
 module.exports = router;
-
-
 // const express = require("express");
 // const router = express.Router();
 // const TransactionController = require("../controllers/TranscationController");

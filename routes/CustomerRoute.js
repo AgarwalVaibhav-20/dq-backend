@@ -13,6 +13,8 @@ router.get("/customer/:id", authMiddleware, CustomerController.getCustomerById);
 router.post('/customer/admin-reward-points/add/:id', authMiddleware, CustomerController.addAdminRewardPoints);
 router.put("/customer/update/:id", authMiddleware, CustomerController.updateCustomer);
 router.put("/customer/frequency/:id", authMiddleware, CustomerController.updateCustomerFrequency);
+// Customer report
+router.get('/customer/report', authMiddleware, CustomerController.getCustomerReport);
 
 router.delete("/customer/delete/:id", authMiddleware, CustomerController.deleteCustomer);
 // Add these routes

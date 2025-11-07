@@ -1,7 +1,7 @@
 const Transaction = require("../model/Transaction");
 const User = require("../model/User");
 const mongoose = require('mongoose');
-
+const moment = require("moment");
 // Create Cash In or Cash Out Transaction
 
 exports.createCashTransaction = async (req, res) => {
@@ -305,7 +305,7 @@ exports.getAllTransactions = async (req, res) => {
     console.log('=== BACKEND: getAllTransactions CALLED ===');
 
     // 🔥 ALWAYS use req.userId (which is user.restaurantId from user collection)
-    const restaurantId = req.userId;
+    const { restaurantId } = req.params;
 
     if (!restaurantId) {
       return res.status(400).json({
@@ -335,6 +335,129 @@ exports.getAllTransactions = async (req, res) => {
   }
 };
 
+exports.getTotalPaymentReport = async (req, res) => {
+  try {
+    const { restaurantId } = req.query;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required",
+      });
+    }
+
+    console.log("📊 Fetching payment report for restaurantId:", restaurantId);
+
+    // ✅ Fetch all valid transactions (not deleted)
+    const transactions = await Transaction.find({
+      restaurantId,
+      isDeleted: { $ne: true },
+    });
+
+    console.log(`✅ Found ${transactions.length} transactions`);
+
+    // ✅ Calculate totals using correct field names from schema
+    const totalAmount = transactions.reduce((sum, txn) => sum + (txn.total || 0), 0);
+    const count = transactions.length;
+
+    // ✅ Group by payment type (not paymentMethod - based on your schema)
+    const methodBreakdown = transactions.reduce((acc, txn) => {
+      const method = txn.type || "Unknown"; // ✅ Changed from paymentMethod to type
+      acc[method] = (acc[method] || 0) + (txn.total || 0); // ✅ Changed from amount to total
+      return acc;
+    }, {});
+
+    // ✅ Group by payment type with detailed info (count + amount)
+    const paymentTypeDetails = transactions.reduce((acc, txn) => {
+      const method = txn.type || "Unknown";
+      if (!acc[method]) {
+        acc[method] = {
+          count: 0,
+          totalAmount: 0,
+          transactions: []
+        };
+      }
+      acc[method].count += 1;
+      acc[method].totalAmount += (txn.total || 0);
+      
+      // Optionally include transaction details
+      acc[method].transactions.push({
+        transactionId: txn.transactionId,
+        total: txn.total,
+        createdAt: txn.createdAt,
+        tableNumber: txn.tableNumber
+      });
+      
+      return acc;
+    }, {});
+
+    console.log("💰 Total Amount:", totalAmount);
+    console.log("📋 Payment Breakdown:", methodBreakdown);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalAmount,
+        totalTransactions: count,
+        methodBreakdown,
+        paymentTypeDetails, // ✅ Added detailed breakdown
+      },
+    });
+  } catch (error) {
+    console.error("💥 getTotalPaymentReport Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching total payment report",
+      error: error.message,
+    });
+  }
+};
+
+exports.getDailyReport = async (req, res) => {
+  try {
+    console.log("=== BACKEND: getDailyReport CALLED ===");
+
+    // 🔐 Get restaurantId from logged-in user
+    const restaurantId = req.userId;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant ID is required",
+      });
+    }
+
+    // 🕒 Define start and end of the current day
+    const startOfDay = moment().startOf("day").toDate();
+    const endOfDay = moment().endOf("day").toDate();
+
+    // ✅ Fetch today's transactions for the restaurant
+    const transactions = await Transaction.find({
+      restaurantId,
+      isDeleted: { $ne: true },
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    }).sort({ createdAt: -1 });
+
+    // 💰 Optional: Calculate totals
+    const totalSales = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    const totalOrders = transactions.length;
+
+    res.status(200).json({
+      success: true,
+      data: transactions,
+      count: totalOrders,
+      totalSales,
+    });
+
+  } catch (err) {
+    console.error("Get Daily Report Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
+  }
+};
 // exports.getAllTransactions = async (req, res) => {
 //   try {
 //     const transactions = await Transaction.find({
